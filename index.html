@@ -15,7 +15,7 @@
             margin: 0; /* Supprime la marge par défaut du body */
             background-color: #e2e8f0; /* Un gris-bleu plus doux */
             min-height: 100vh;
-            /* Supprimé: justify-content: center; */ /* Laisser le JS gérer le centrage de la grille */
+            justify-content: center; /* Centre le contenu verticalement */
             padding: 0; /* Supprime le padding du body pour que la grille puisse prendre toute la place */
             box-sizing: border-box; /* Inclut le padding dans la taille totale */
             overflow: hidden; /* Empêche le défilement du body pour le zoom */
@@ -181,38 +181,28 @@
 
         // Fonction pour calculer et appliquer la taille des pixels et de la grille avec un ratio 16:9
         function setPixelGridSize() {
-            // Utilise la largeur et la hauteur de la fenêtre directement pour maximiser l'espace
-            const availableWidth = window.innerWidth;
-            const availableHeight = window.innerHeight;
+            // Utilise la largeur et la hauteur du viewport pour maximiser l'espace
+            const availableWidth = document.documentElement.clientWidth;
+            const availableHeight = document.documentElement.clientHeight;
 
-            let gridWidth, gridHeight;
+            let pixelSize;
 
-            // Calculer les dimensions de la grille en fonction du ratio 16:9
-            // Option 1: Basé sur la largeur disponible
-            let calculatedHeight = (availableWidth / targetRatioWidth) * targetRatioHeight;
-            if (calculatedHeight <= availableHeight) {
-                gridWidth = availableWidth;
-                gridHeight = calculatedHeight;
-            } else {
-                // Option 2: Basé sur la hauteur disponible si la largeur est trop grande
-                let calculatedWidth = (availableHeight / targetRatioHeight) * targetRatioWidth;
-                gridHeight = availableHeight;
-                gridWidth = calculatedWidth;
-            }
+            // Calculer la taille d'un pixel en fonction de la contrainte de largeur et de hauteur
+            const pixelSizeByWidth = availableWidth / gridSize;
+            const pixelSizeByHeight = availableHeight / totalGridHeightPixels;
+
+            // Choisir la plus petite taille de pixel pour s'assurer que la grille entière rentre
+            pixelSize = Math.min(pixelSizeByWidth, pixelSizeByHeight);
 
             // Appliquer le niveau de zoom
-            gridWidth *= currentZoomLevel;
-            gridHeight *= currentZoomLevel;
-
-            // Calculer la taille d'un pixel pour qu'il reste carré
-            const pixelSize = gridWidth / gridSize;
+            pixelSize *= currentZoomLevel;
             
             // Appliquer la taille à la grille
             pixelGrid.style.width = `${pixelSize * gridSize}px`;
-            pixelGrid.style.height = `${pixelSize * totalGridHeightPixels}px`; // Utilise totalGridHeightPixels pour la hauteur
+            pixelGrid.style.height = `${pixelSize * totalGridHeightPixels}px`;
 
             pixelGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${pixelSize}px)`;
-            pixelGrid.style.gridTemplateRows = `repeat(${totalGridHeightPixels}, ${pixelSize}px)`; // Utilise totalGridHeightPixels ici
+            pixelGrid.style.gridTemplateRows = `repeat(${totalGridHeightPixels}, ${pixelSize}px)`;
 
             centerGrid();
         }
