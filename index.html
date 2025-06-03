@@ -4,57 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon PixelWar Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Styles CSS pour la grille et les pixels */
+        /* Styles CSS personnalisés pour la grille et les pixels */
         body {
-            font-family: sans-serif;
+            font-family: 'Inter', sans-serif; /* Utilisation de la police Inter */
             display: flex;
             flex-direction: column;
             align-items: center;
             margin-top: 20px;
-            background-color: #f0f0f0;
-        }
-
-        #controls {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        #palette {
-            display: flex;
-        }
-
-        .color-box {
-            width: 30px;
-            height: 30px;
-            border: 1px solid #333;
-            cursor: pointer;
-            margin: 5px;
-            border-radius: 8px; /* Bords arrondis pour la palette */
-        }
-
-        .color-box.selected {
-            border: 3px solid blue; /* Indique la couleur sélectionnée */
+            background-color: #e2e8f0; /* Un gris-bleu plus doux */
+            min-height: 100vh;
+            justify-content: center;
+            padding: 1rem; /* Ajout d'un padding pour éviter que la grille ne touche les bords */
         }
 
         #pixel-grid {
             display: grid;
-            border: 1px solid #ccc;
+            border: 1px solid #cbd5e1; /* Bordure plus douce */
             background-color: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); /* Ombre plus prononcée */
             position: relative;
+            border-radius: 0.75rem; /* Bords arrondis */
+            overflow: hidden; /* Pour que les pixels ne dépassent pas les bords arrondis */
+            /* La taille sera définie dynamiquement par JS */
+            width: 100%; /* Prend toute la largeur disponible du conteneur */
+            height: 100%; /* Prend toute la hauteur disponible du conteneur */
+            max-width: calc(100vh - 200px); /* Limite la taille pour qu'elle ne soit pas trop grande sur les écrans larges */
+            max-height: calc(100vh - 200px);
+            aspect-ratio: 1 / 1; /* Force un ratio 1:1 pour la grille */
         }
 
         .pixel {
-            width: 10px;
-            height: 10px;
+            /* La taille sera définie dynamiquement par JS */
             background-color: #fff;
-            border: 0.5px solid #eee;
+            border: 0.5px solid #f0f0f0; /* Bordure de pixel très légère */
             position: relative;
             cursor: pointer;
             border-radius: 2px; /* Bords légèrement arrondis pour les pixels */
+            transition: background-color 0.1s ease-in-out; /* Transition douce pour la couleur */
         }
 
         .pixel.placed {
@@ -65,41 +53,102 @@
         .pixel .tooltip {
             visibility: hidden;
             width: auto;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.8); /* Fond plus opaque */
             color: #fff;
             text-align: center;
-            border-radius: 6px; /* Bords arrondis pour l'infobulle */
+            border-radius: 0.5rem; /* Bords arrondis pour l'infobulle */
             padding: 5px 8px;
             position: absolute;
-            z-index: 1;
-            bottom: 100%;
+            z-index: 10; /* Au-dessus de tout */
+            top: 100%; /* Apparaît sous le pixel */
             left: 50%;
             transform: translateX(-50%);
-            margin-bottom: 5px;
+            margin-top: 8px; /* Plus d'espace sous le pixel */
             white-space: nowrap;
             font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
         }
 
         .pixel:hover .tooltip {
             visibility: visible;
+            opacity: 1;
+        }
+
+        /* Styles spécifiques pour les modales */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .modal-overlay.show .modal-content {
+            transform: translateY(0);
         }
     </style>
 </head>
-<body>
-    <h1>Mon PixelWar Online</h1>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+    <h1 class="text-4xl font-extrabold text-gray-800 mb-8 tracking-tight">Mon PixelWar Online</h1>
 
-    <div id="controls">
-        <div id="palette">
-            <div class="color-box" style="background-color: red;" data-color="red"></div>
-            <div class="color-box" style="background-color: blue;" data-color="blue"></div>
-            <div class="color-box" style="background-color: green;" data-color="green"></div>
-            <div class="color-box" style="background-color: yellow;" data-color="yellow"></div>
-            <div class="color-box" style="background-color: black;" data-color="black"></div>
-            <div class="color-box" style="background-color: white;" data-color="white"></div>
-        </div>
+    <div id="controls" class="mb-8 flex items-center space-x-6 bg-white p-4 rounded-xl shadow-lg">
+        <span class="text-lg font-semibold text-gray-700">Couleur actuelle :</span>
+        <div id="current-color-display" class="w-10 h-10 border-2 border-gray-300 rounded-full transition-all duration-200 ease-in-out selected border-blue-600" style="background-color: red;"></div>
     </div>
 
     <div id="pixel-grid"></div>
+
+    <div id="color-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Choisissez une couleur</h2>
+            <div id="modal-palette" class="flex justify-center flex-wrap gap-2 mb-6">
+                <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: red;" data-color="red"></div>
+                <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: blue;" data-color="blue"></div>
+                <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: green;" data-color="green"></div>
+                <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: yellow;" data-color="yellow"></div>
+                <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: black;" data-color="black"></div>
+                <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: white;" data-color="white"></div>
+            </div>
+            <button id="color-modal-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Annuler</button>
+        </div>
+    </div>
+
+    <div id="username-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Quel est votre pseudo ?</h2>
+            <input type="text" id="username-input" class="w-full p-3 border border-gray-300 rounded-lg mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Entrez votre pseudo ici..." maxlength="20">
+            <div class="flex justify-center space-x-4">
+                <button id="modal-ok-btn" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Envoyer</button>
+                <button id="modal-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Annuler</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // L'URL de votre application web Apps Script déployée, utilisée comme API.
@@ -107,13 +156,94 @@
 
         const gridSize = 50;
         const pixelGrid = document.getElementById('pixel-grid');
-        const palette = document.getElementById('palette');
-        let currentColor = 'red';
+        const mainColorDisplay = document.getElementById('current-color-display'); // Affiche la couleur sélectionnée
+        let currentColor = 'red'; // Couleur par défaut
 
-        pixelGrid.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
-        pixelGrid.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+        // Éléments des modales
+        const colorModal = document.getElementById('color-modal');
+        const modalPalette = document.getElementById('modal-palette');
+        const colorModalCancelBtn = document.getElementById('color-modal-cancel-btn');
 
-        // Fonction pour mettre à jour un pixel sur la grille
+        const usernameModal = document.getElementById('username-modal');
+        const usernameInput = document.getElementById('username-input');
+        const modalOkBtn = document.getElementById('modal-ok-btn');
+        const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+        let resolveColorModalPromise;
+        let resolveUsernameModalPromise;
+
+        // Fonction pour calculer et appliquer la taille des pixels
+        function setPixelGridSize() {
+            // Calcule la taille du pixel en fonction de la plus petite dimension de la fenêtre
+            // et de la taille de la grille, avec une marge.
+            const availableSize = Math.min(window.innerWidth, window.innerHeight) * 0.8; // 80% de la taille dispo
+            const pixelSize = Math.floor(availableSize / gridSize);
+            
+            pixelGrid.style.width = `${pixelSize * gridSize}px`;
+            pixelGrid.style.height = `${pixelSize * gridSize}px`;
+            pixelGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${pixelSize}px)`;
+            pixelGrid.style.gridTemplateRows = `repeat(${gridSize}, ${pixelSize}px)`;
+
+            // Met à jour la taille des pixels individuels (si nécessaire, mais le grid template gère déjà ça)
+            document.querySelectorAll('.pixel').forEach(pixel => {
+                pixel.style.width = `${pixelSize}px`;
+                pixel.style.height = `${pixelSize}px`;
+            });
+        }
+
+        // --- Fonctions pour gérer les modales ---
+        function showColorModal() {
+            return new Promise(resolve => {
+                resolveColorModalPromise = resolve;
+                colorModal.classList.add('show');
+            });
+        }
+
+        function showUsernameModal() {
+            return new Promise(resolve => {
+                resolveUsernameModalPromise = resolve;
+                usernameInput.value = '';
+                usernameModal.classList.add('show');
+                usernameInput.focus();
+            });
+        }
+
+        // Gestionnaire pour la sélection de couleur dans la modale
+        modalPalette.addEventListener('click', (event) => {
+            if (event.target.classList.contains('color-box')) {
+                const selectedColor = event.target.dataset.color;
+                colorModal.classList.remove('show');
+                resolveColorModalPromise(selectedColor); // Résout la promesse avec la couleur choisie
+            }
+        });
+
+        // Gestionnaire pour le bouton Annuler de la modale de couleur
+        colorModalCancelBtn.addEventListener('click', () => {
+            colorModal.classList.remove('show');
+            resolveColorModalPromise(null); // Résout la promesse avec null si annulé
+        });
+
+        // Gestionnaire pour le bouton OK de la modale de pseudo
+        modalOkBtn.addEventListener('click', () => {
+            const userName = usernameInput.value.trim();
+            usernameModal.classList.remove('show');
+            resolveUsernameModalPromise(userName === '' ? 'Anonyme' : userName);
+        });
+
+        // Gestionnaire pour le bouton Annuler de la modale de pseudo
+        modalCancelBtn.addEventListener('click', () => {
+            usernameModal.classList.remove('show');
+            resolveUsernameModalPromise(null);
+        });
+
+        // Gérer la touche Entrée dans l'input de la modale de pseudo
+        usernameInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                modalOkBtn.click();
+            }
+        });
+
+        // --- Fonctions de logique métier ---
         function updatePixelOnGrid(x, y, color, user) {
             const pixelElement = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
             if (pixelElement) { 
@@ -125,38 +255,34 @@
             }
         }
 
-        // Fonction asynchrone pour ajouter un pixel via l'API Apps Script
         async function addPixel(x, y, color, userName) {
             try {
-                // Construction de l'URL avec les paramètres pour l'action 'addPixel'
                 const url = `${APPS_SCRIPT_API_URL}?action=addPixel&x=${x}&y=${y}&color=${color}&user=${userName}`;
                 const response = await fetch(url, {
-                    method: 'GET', // Utilisation de GET pour simplifier le passage des paramètres
+                    method: 'GET',
                 });
-                const placedPixel = await response.json(); // La réponse de Apps Script doit être du JSON
+                const placedPixel = await response.json();
                 updatePixelOnGrid(placedPixel.x, placedPixel.y, placedPixel.color, placedPixel.user);
             } catch (error) {
                 console.error('Erreur lors de l\'ajout du pixel :', error);
-                alert('Erreur lors de l\'ajout du pixel. Vérifiez la console du navigateur.');
+                // Utiliser une modale d'erreur si nécessaire, pas alert()
             }
         }
 
-        // Fonction asynchrone pour charger tous les pixels via l'API Apps Script
         async function loadAllPixels() {
             try {
-                // Construction de l'URL avec le paramètre pour l'action 'getPixels'
                 const url = `${APPS_SCRIPT_API_URL}?action=getPixels`;
                 const response = await fetch(url);
-                const pixels = await response.json(); // La réponse de Apps Script doit être du JSON
+                const pixels = await response.json();
                 pixels.forEach(p => {
                     updatePixelOnGrid(p.x, p.y, p.color, p.user);
                 });
             } catch (error) {
                 console.error('Erreur lors du chargement des pixels :', error);
-                // Pas d'alerte ici pour ne pas gêner l'utilisateur lors du rafraîchissement
             }
         }
 
+        // --- Initialisation ---
         // Générer la grille de pixels
         for (let i = 0; i < gridSize * gridSize; i++) {
             const pixel = document.createElement('div');
@@ -177,34 +303,34 @@
 
             pixelGrid.appendChild(pixel);
 
-            pixel.addEventListener('click', () => {
-                // Vous pouvez ajouter une condition ici si vous ne voulez pas que les pixels déjà placés soient modifiables
+            pixel.addEventListener('click', async () => {
+                // Si le pixel est déjà placé, on peut choisir de ne rien faire ou de permettre de le repasser
                 // if (pixel.classList.contains('placed')) { return; } 
 
-                let userName = prompt("Quel est votre pseudo pour ce pixel ?", "");
+                // 1. Afficher la modale de sélection de couleur
+                const selectedColor = await showColorModal();
 
-                if (userName === null || userName.trim() === "") {
-                    userName = "Anonyme";
+                if (selectedColor === null) { // Si l'utilisateur annule la sélection de couleur
+                    return;
+                }
+                currentColor = selectedColor; // Met à jour la couleur globale si nécessaire
+                mainColorDisplay.style.backgroundColor = currentColor; // Met à jour l'affichage de la couleur actuelle
+
+                // 2. Afficher la modale de saisie du pseudo
+                const userName = await showUsernameModal();
+
+                if (userName === null) { // Si l'utilisateur annule la saisie du pseudo
+                    return;
                 }
 
-                addPixel(x, y, currentColor, userName); // Appel de la nouvelle fonction addPixel
+                // 3. Ajouter le pixel
+                addPixel(x, y, currentColor, userName);
             });
         }
 
-        // Gérer la sélection de couleur dans la palette
-        palette.addEventListener('click', (event) => {
-            if (event.target.classList.contains('color-box')) {
-                document.querySelectorAll('.color-box').forEach(box => {
-                    box.classList.remove('selected');
-                });
-
-                event.target.classList.add('selected');
-                currentColor = event.target.dataset.color;
-            }
-        });
-
-        // Sélectionner la première couleur par défaut au chargement
-        document.querySelector('.color-box').classList.add('selected');
+        // Appeler la fonction de dimensionnement au chargement et au redimensionnement de la fenêtre
+        window.addEventListener('load', setPixelGridSize);
+        window.addEventListener('resize', setPixelGridSize);
 
         // Charger tous les pixels au démarrage
         loadAllPixels();
