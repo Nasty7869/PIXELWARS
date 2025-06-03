@@ -192,8 +192,7 @@
 
     <div id="controls-container">
         <button id="fill-grid-test-btn" class="control-button">Remplir (Test)</button>
-        <!-- Le bouton d'export manuel peut être conservé ou supprimé selon votre préférence -->
-        <button id="export-grid-html-btn" class="control-button">Exporter en HTML (Manuel)</button>
+        <button id="export-grid-html-btn" class="control-button">Exporter HTML (Manuel)</button>
     </div>
 
     <!-- Modale de sélection de couleur -->
@@ -236,7 +235,7 @@
     <div id="archive-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Grille Complète !</h2>
-            <p class="text-gray-700 mb-6">La grille de pixels est entièrement remplie. Voulez-vous archiver son état actuel (données et visuel) et commencer une nouvelle grille ?</p>
+            <p class="text-gray-700 mb-6">La grille de pixels est entièrement remplie. Voulez-vous archiver son état actuel (données et visuel sur Drive) et commencer une nouvelle grille ?</p>
             <div class="flex justify-center space-x-4">
                 <button id="archive-ok-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Archiver et Réinitialiser</button>
                 <button id="archive-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Non, merci</button>
@@ -251,7 +250,7 @@
     </div>
 
     <script>
-        const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbyt-AJ1gP6WDkmF1PUdE9zMtzeH2mxxeSF4DZ_GGw9aq1gPaagtV3a7aTm4jooP6Yrr/exec'; 
+        const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbwufyLv2vOUx8g3u4na10ZgPxgyfPY_Ir0Ujlx6zxzI6mTJt_avr-CYWTQCHAOwNEJ9/exec'; 
         const gridSize = 50; 
         const RATE_LIMIT_MINUTES = 3; 
 
@@ -404,7 +403,7 @@
             if (pixelElement) { 
                 pixelElement.style.backgroundColor = color;
                 pixelElement.dataset.color = color;
-                pixelElement.dataset.user = user;
+                pixelElement.dataset.user = user; // S'assurer que le dataset.user est mis à jour
                 pixelElement.querySelector('.tooltip').textContent = user;
             }
         }
@@ -423,7 +422,7 @@
         async function addPixel(x, y, color, userName) {
             try {
                 const url = `${APPS_SCRIPT_API_URL}?action=addPixel&x=${x}&y=${y}&color=${encodeURIComponent(color)}&user=${encodeURIComponent(userName)}`;
-                const response = await fetch(url);
+                const response = await fetch(url); // GET request
                 const result = await response.json();
                 if (result.success) {
                     updatePixelOnGrid(result.pixel.x, result.pixel.y, result.pixel.color, result.pixel.user);
@@ -451,8 +450,7 @@
                 const countResponse = await fetch(`${APPS_SCRIPT_API_URL}?action=countPixels`);
                 const countResult = await countResponse.json();
                 if (countResult.count >= totalPixelsInGrid) {
-                    // MODIFICATION : Ne pas appeler showArchiveModal ici si l'archivage est automatique
-                    // L'archivage automatique se fera via archiveCurrentGridAndReset si appelé
+                    // L'archivage se déclenche maintenant via d'autres flux (chargement, test)
                 }
             } catch (error) {
                 console.error('Erreur lors du chargement des pixels :', error);
@@ -460,25 +458,19 @@
             }
         }
         
-        // MODIFIÉ : La fonction gère l'archivage des données, l'export HTML, puis la réinitialisation.
         async function archiveCurrentGridAndReset() {
             showMessage('Archivage des données en cours...', 'info');
-            // Désactiver les boutons pour éviter les actions multiples pendant l'archivage
             archiveOkBtn.disabled = true; 
-            exportGridHtmlBtn.disabled = true;
+            exportGridHtmlBtn.disabled = true; 
 
             try {
-                const response = await fetch(`${APPS_SCRIPT_API_URL}?action=archiveGrid`);
-                const result = await response.json();
+                const gasResponse = await fetch(`${APPS_SCRIPT_API_URL}?action=archiveGrid`); 
+                const result = await gasResponse.json();
                 if (result.success) {
-                    showMessage(result.message, 'success');
+                    showMessage(result.message, 'success'); 
                     
-                    // Étape 2: Exporter la grille actuelle en HTML automatiquement
-                    // On attend que l'export soit terminé avant de réinitialiser.
-                    // La fonction exportGridAsHTML gère ses propres messages et la réactivation du bouton d'export manuel.
-                    await exportGridAsHTML(true); // Passer un drapeau pour indiquer un export automatique
+                    await exportGridAsHTML(true); 
 
-                    // Étape 3: Réinitialiser la grille côté client
                     resetGridClientSide(); 
                 } else {
                     showMessage(result.message || 'Erreur lors de l\'archivage des données.', 'error');
@@ -487,9 +479,8 @@
                 console.error('Erreur lors de l\'archivage des données :', error);
                 showMessage('Erreur de connexion lors de l\'archivage des données.', 'error');
             } finally {
-                // Réactiver les boutons si nécessaire (surtout si l'export n'est pas appelé ou échoue avant)
                 archiveOkBtn.disabled = false; 
-                // exportGridHtmlBtn.disabled = false; // Géré dans exportGridAsHTML
+                exportGridHtmlBtn.disabled = false; 
             }
         }
 
@@ -499,19 +490,17 @@
             fillGridTestBtn.disabled = true; 
             try {
                 const url = `${APPS_SCRIPT_API_URL}?action=fillTestGrid&gridWidth=${gridSize}&gridHeight=${totalGridHeightPixels}`;
-                const response = await fetch(url);
+                const response = await fetch(url); 
                 const result = await response.json();
                 if (result.success) {
                     showMessage(result.message, 'success');
-                    await loadAllPixels(); // Attendre que le chargement soit fait
-                    // Après le remplissage, vérifier si la grille est pleine pour déclencher l'archivage auto
+                    await loadAllPixels(); 
                     const countResponse = await fetch(`${APPS_SCRIPT_API_URL}?action=countPixels`);
                     const countResult = await countResponse.json();
                     if (countResult.count >= totalPixelsInGrid) {
                         showMessage('Grille de test pleine, déclenchement de l\'archivage automatique...', 'info');
-                        await archiveCurrentGridAndReset(); // Déclenche l'archivage auto complet
+                        await archiveCurrentGridAndReset(); 
                     }
-
                 } else {
                     showMessage(result.message || 'Erreur lors du remplissage de test.', 'error');
                 }
@@ -523,20 +512,20 @@
             }
         }
 
-        // MODIFIÉ : La fonction peut prendre un paramètre pour savoir si c'est un export automatique
+        // MODIFIÉ : Ajout de l'affichage du pseudo dans l'export HTML
         async function exportGridAsHTML(isAutoExport = false) {
-            if (!isAutoExport) { // Si ce n'est pas un export auto, afficher le message et gérer le bouton
-                showMessage('Préparation de l\'export HTML...', 'info');
+            if (!isAutoExport) {
+                showMessage('Préparation de l\'export HTML vers Drive...', 'info');
                 exportGridHtmlBtn.disabled = true;
             } else {
-                showMessage('Exportation HTML automatique en cours...', 'info');
+                showMessage('Envoi de l\'archive HTML vers Drive...', 'info');
             }
 
-            const exportPixelSize = 10; 
+            const exportPixelSize = 20; // Augmenter un peu la taille pour la lisibilité du pseudo
             const gridWidthPx = gridSize * exportPixelSize;
             const gridHeightPx = totalGridHeightPixels * exportPixelSize;
 
-            let htmlContent = `
+            let htmlGeneratedContent = `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -561,6 +550,19 @@
             height: ${exportPixelSize}px;
             border: 0.5px solid #eee; 
             box-sizing: border-box;
+            /* Styles pour afficher le pseudo */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 7px; /* Ajuster la taille pour la lisibilité */
+            color: rgba(0,0,0,0.5); /* Couleur du texte pour le pseudo, semi-transparent */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            line-height: 1;
+        }
+        .pixel-export.dark-bg { /* Classe pour les fonds foncés, pour un texte clair */
+            color: rgba(255,255,255,0.6);
         }
     </style>
 </head>
@@ -571,39 +573,80 @@
             const pixels = pixelGrid.querySelectorAll('.pixel');
             pixels.forEach(pixel => {
                 const color = pixel.style.backgroundColor || 'white'; 
-                htmlContent += `<div class="pixel-export" style="background-color: ${color};"></div>`;
+                const user = pixel.dataset.user || ''; // Récupérer le pseudo
+                let userDisplay = user;
+                if (user === 'Vide' || user === 'Anonyme') { // Ne pas afficher "Vide" ou "Anonyme"
+                    userDisplay = '';
+                } else if (user.length > 3) { // Tronquer les pseudos longs pour l'affichage
+                    userDisplay = user.substring(0,2) + '.';
+                }
+
+                // Déterminer si le fond est sombre pour ajuster la couleur du texte du pseudo
+                let isDarkBg = false;
+                if (color && color !== 'white' && color !== '#fff' && color !== 'rgb(255, 255, 255)') {
+                    try {
+                        // Tentative de conversion de la couleur en RGB pour évaluer la luminosité
+                        let r, g, b;
+                        if (color.startsWith('#')) {
+                            const hex = color.replace('#', '');
+                            r = parseInt(hex.substring(0,2), 16);
+                            g = parseInt(hex.substring(2,4), 16);
+                            b = parseInt(hex.substring(4,6), 16);
+                        } else if (color.startsWith('rgb')) {
+                            const parts = color.match(/\d+/g);
+                            if (parts && parts.length >=3) {
+                                r = parseInt(parts[0]);
+                                g = parseInt(parts[1]);
+                                b = parseInt(parts[2]);
+                            }
+                        }
+                        if (r !== undefined && g !== undefined && b !== undefined) {
+                            // Formule simple de luminosité (0-255)
+                            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                            if (brightness < 128) { // Seuil pour considérer un fond comme sombre
+                                isDarkBg = true;
+                            }
+                        }
+                    } catch (e) { /* ignorer les erreurs de parsing de couleur */ }
+                }
+                const darkBgClass = isDarkBg ? 'dark-bg' : '';
+
+                htmlGeneratedContent += `<div class="pixel-export ${darkBgClass}" style="background-color: ${color};" title="${user}">${userDisplay}</div>`;
             });
 
-            htmlContent += `
+            htmlGeneratedContent += `
     </div>
 </body>
 </html>`;
-            // Utiliser une promesse pour s'assurer que le téléchargement est initié avant de continuer si c'est un export auto
-            return new Promise((resolve, reject) => {
+            
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const filename = `pixelwar_archive_${timestamp}.html`;
+
+            return new Promise(async (resolve, reject) => {
                 try {
-                    const blob = new Blob([htmlContent], { type: 'text/html' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                    link.download = `pixelwar_archive_${timestamp}.html`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(link.href); 
-                    if (!isAutoExport) {
-                        showMessage('Export HTML généré !', 'success');
+                    const response = await fetch(APPS_SCRIPT_API_URL, {
+                        method: 'POST',
+                        headers: {
+                           'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            action: 'saveHtmlToDrive', 
+                            htmlContent: htmlGeneratedContent,
+                            filename: filename
+                        })
+                    });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        showMessage(result.message || `HTML sauvegardé sur Drive: ${filename}`, 'success');
+                        resolve();
                     } else {
-                        showMessage('Export HTML automatique terminé.', 'success');
+                        throw new Error(result.message || 'Erreur inconnue lors de la sauvegarde sur Drive.');
                     }
-                    resolve(); // Résoudre la promesse après le succès
                 } catch (error) {
-                    console.error("Erreur lors de la création du fichier HTML :", error);
-                    if (!isAutoExport) {
-                        showMessage('Erreur lors de l\'export HTML.', 'error');
-                    } else {
-                        showMessage('Erreur lors de l\'export HTML automatique.', 'error');
-                    }
-                    reject(error); // Rejeter la promesse en cas d'erreur
+                    console.error("Erreur lors de l'envoi du HTML à Google Drive :", error);
+                    showMessage(`Erreur Drive: ${error.message}`, 'error');
+                    reject(error);
                 } finally {
                     if (!isAutoExport) {
                         exportGridHtmlBtn.disabled = false;
@@ -621,7 +664,7 @@
             const tooltip = document.createElement('span');
             tooltip.classList.add('tooltip'); tooltip.textContent = "Vide";
             pixel.appendChild(tooltip);
-            pixel.dataset.color = "#fff"; pixel.dataset.user = "Vide";
+            pixel.dataset.color = "#fff"; pixel.dataset.user = "Vide"; // Initialiser dataset.user
             pixelGrid.appendChild(pixel);
             pixel.addEventListener('click', async () => {
                 if (RATE_LIMIT_MINUTES > 0 && !timerContainer.classList.contains('hidden')) {
@@ -637,29 +680,26 @@
         }
 
         fillGridTestBtn.addEventListener('click', fillGridForTesting);
-        exportGridHtmlBtn.addEventListener('click', () => exportGridAsHTML(false)); // Appel manuel
+        exportGridHtmlBtn.addEventListener('click', () => exportGridAsHTML(false)); 
 
 
         window.addEventListener('load', async () => { 
             setPixelGridSize(); 
             centerGrid(); 
-            await loadAllPixels(); // Attendre que les pixels soient chargés
+            await loadAllPixels(); 
 
-            // Vérifier si la grille est pleine au chargement initial pour déclencher l'archivage
             const countResponse = await fetch(`${APPS_SCRIPT_API_URL}?action=countPixels`);
             const countResult = await countResponse.json();
             if (countResult.count >= totalPixelsInGrid) {
                  showMessage('Grille détectée comme pleine au chargement, proposition d\'archivage...', 'info');
-                if (await showArchiveModal()) { // Proposer à l'utilisateur s'il veut archiver
+                if (await showArchiveModal()) { 
                    await archiveCurrentGridAndReset();
                 }
             }
         });
         window.addEventListener('resize', () => { setPixelGridSize(); centerGrid(); });
         
-        // Le setInterval pour loadAllPixels peut être problématique s'il déclenche un archivage
-        // alors qu'un autre est en cours. Pour l'instant, on le garde, mais c'est un point d'attention.
-        setInterval(loadAllPixels, 7000); // Augmenté un peu l'intervalle
+        setInterval(loadAllPixels, 7000); 
     </script>
 </body>
 </html>
