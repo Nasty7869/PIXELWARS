@@ -42,9 +42,9 @@
             transition: background-color 0.1s ease-in-out; /* Transition douce pour la couleur */
         }
 
-        .pixel.placed {
-            cursor: not-allowed;
-        }
+        /* .pixel.placed { */ /* Plus nécessaire si on peut toujours modifier */
+            /* cursor: not-allowed; */
+        /* } */
 
         /* Style pour l'infobulle */
         .pixel .tooltip {
@@ -142,6 +142,28 @@
         #archive-modal .modal-content {
             width: 500px;
         }
+
+        /* --- NOUVEAU : Style pour le timer --- */
+        #timer-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #1f2937; /* Gris foncé Tailwind (gray-800) */
+            color: white;
+            padding: 12px 20px; /* Augmentation du padding pour un meilleur aspect */
+            border-radius: 8px; /* Bords arrondis */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2); /* Ombre portée plus marquée */
+            z-index: 9999; /* Pour être au-dessus de la plupart des éléments mais sous les modales */
+            font-size: 1rem; /* 16px */
+            font-weight: 500; /* Medium */
+            opacity: 1; /* Visible par défaut, géré par JS */
+            visibility: visible; /* Visible par défaut, géré par JS */
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        #timer-container.hidden { /* Classe pour cacher le timer */
+            opacity: 0;
+            visibility: hidden;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center min-h-screen">
@@ -157,7 +179,7 @@
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: yellow;" data-color="yellow"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: black;" data-color="black"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: white;" data-color="white"></div>
-            </div>
+                 </div>
             <button id="color-modal-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Annuler</button>
         </div>
     </div>
@@ -176,25 +198,29 @@
     <div id="archive-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Grille Complète !</h2>
-            <p class="text-gray-700 mb-6">La grille de pixels est entièrement remplie. Voulez-vous archiver son état actuel ?</p>
+            <p class="text-gray-700 mb-6">La grille de pixels est entièrement remplie. Voulez-vous archiver son état actuel et commencer une nouvelle grille ?</p>
             <div class="flex justify-center space-x-4">
-                <button id="archive-ok-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Archiver</button>
+                <button id="archive-ok-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Archiver et Réinitialiser</button>
                 <button id="archive-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Non, merci</button>
             </div>
         </div>
     </div>
 
-    <div id="message-box" class="hidden"></div>
+    <div id="message-box"></div>
+
+    <div id="timer-container" class="hidden"> Prochain pixel dans : <span id="timer-countdown">00:00</span>
+    </div>
 
     <script>
         // L'URL de votre application web Apps Script déployée, utilisée comme API.
         const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbwufyLv2vOUx8g3u4na10ZgPxgyfPY_Ir0Ujlx6zxzI6mTJt_avr-CYWTQCHAOwNEJ9/exec'; 
+        const gridSize = 50; // Nombre de pixels sur un côté de la grille (50xN pour ratio)
+        const RATE_LIMIT_MINUTES = 3; // Doit correspondre à la valeur dans le script Google Apps
 
-        const gridSize = 50; // Nombre de pixels sur un côté de la grille (50x50)
         const pixelGrid = document.getElementById('pixel-grid');
         let currentColor = 'red'; // Couleur par défaut
 
-        // Éléments des modales
+        // Éléments des modales et messages
         const colorModal = document.getElementById('color-modal');
         const modalPalette = document.getElementById('modal-palette');
         const colorModalCancelBtn = document.getElementById('color-modal-cancel-btn');
@@ -210,101 +236,138 @@
 
         const messageBox = document.getElementById('message-box');
 
+        // NOUVEAU : Éléments du timer
+        const timerContainer = document.getElementById('timer-container');
+        const timerCountdown = document.getElementById('timer-countdown');
+        let cooldownInterval; // Variable pour stocker l'intervalle du timer
+
         let resolveColorModalPromise;
         let resolveUsernameModalPromise;
         let resolveArchiveModalPromise;
 
-        let currentZoomLevel = 1.0; // Niveau de zoom actuel
-        const zoomStep = 0.1; // Pas de zoom
-        const minZoom = 1.0; // Zoom minimum (la grille ne peut pas être plus petite que la taille initiale)
-        const maxZoom = 5.0; // Zoom maximum
+        let currentZoomLevel = 1.0;
+        const zoomStep = 0.1;
+        const minZoom = 1.0; 
+        const maxZoom = 5.0;
 
-        // Variables pour le déplacement de la grille
         let isDragging = false;
         let startX, startY;
         let currentTranslateX = 0;
         let currentTranslateY = 0;
 
-        // Définir les ratios pour le calcul de la grille
         const targetRatioWidth = 16;
         const targetRatioHeight = 9;
-        // Calculer le nombre total de pixels en hauteur pour maintenir le ratio 16:9
         const totalGridHeightPixels = Math.round(gridSize * (targetRatioHeight / targetRatioWidth)); 
-        const totalPixelsInGrid = gridSize * totalGridHeightPixels; // Nombre total de pixels attendus dans la grille
+        const totalPixelsInGrid = gridSize * totalGridHeightPixels;
 
         // Fonction pour afficher un message temporaire
         function showMessage(message, type = 'success') {
             messageBox.textContent = message;
-            messageBox.className = `message-box show ${type}`;
+            messageBox.className = `message-box show ${type}`; // Ajoute la classe de type (success, error, info)
             setTimeout(() => {
                 messageBox.classList.remove('show');
-            }, 3000); // Le message disparaît après 3 secondes
+            }, 3000);
         }
 
-        // Fonction pour calculer et appliquer la taille des pixels et de la grille avec un ratio 16:9
+        // NOUVEAU : Fonction pour démarrer et gérer le timer de cooldown
+        function startCooldownTimer(minutes) {
+            clearInterval(cooldownInterval); // Nettoie un ancien timer s'il existe
+            const endTime = new Date().getTime() + minutes * 60 * 1000;
+
+            timerContainer.classList.remove('hidden'); // Affiche le conteneur du timer
+
+            cooldownInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = endTime - now;
+
+                if (distance < 0) {
+                    clearInterval(cooldownInterval);
+                    timerContainer.classList.add('hidden'); // Cache le timer quand c'est fini
+                    // Optionnel : afficher un message que l'utilisateur peut placer un pixel
+                    // showMessage("Vous pouvez placer un nouveau pixel !", 'info');
+                    return;
+                }
+
+                const remainingMinutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const remainingSeconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                // Formatage pour avoir toujours deux chiffres (ex: 01:05)
+                timerCountdown.textContent = `${remainingMinutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }, 1000); // Met à jour toutes les secondes
+        }
+
+
         function setPixelGridSize() {
-            // Utilise la largeur et la hauteur du viewport pour maximiser l'espace
             const availableWidth = document.documentElement.clientWidth;
             const availableHeight = document.documentElement.clientHeight;
-
             let pixelSize;
-
-            // Calculer la taille d'un pixel en fonction de la contrainte de largeur et de hauteur
             const pixelSizeByWidth = availableWidth / gridSize;
             const pixelSizeByHeight = availableHeight / totalGridHeightPixels;
-
-            // Choisir la plus petite taille de pixel pour s'assurer que la grille entière rentre
             pixelSize = Math.min(pixelSizeByWidth, pixelSizeByHeight);
-
-            // Appliquer le niveau de zoom
             pixelSize *= currentZoomLevel;
             
-            // Appliquer la taille à la grille
             pixelGrid.style.width = `${pixelSize * gridSize}px`;
             pixelGrid.style.height = `${pixelSize * totalGridHeightPixels}px`;
-
             pixelGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${pixelSize}px)`;
             pixelGrid.style.gridTemplateRows = `repeat(${totalGridHeightPixels}, ${pixelSize}px)`;
 
-            centerGrid();
+            // Pas besoin d'appeler centerGrid ici si le zoom est relatif au centre
         }
 
-        // Fonction pour centrer la grille
         function centerGrid() {
+             // S'assurer que la grille est dimensionnée avant de calculer son centre
+            if (!pixelGrid.style.width || !pixelGrid.style.height) {
+                setPixelGridSize(); // Dimensionner si ce n'est pas déjà fait
+            }
             const gridRect = pixelGrid.getBoundingClientRect();
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
 
-            // Calcule le décalage nécessaire pour centrer la grille
-            currentTranslateX = (viewportWidth / 2) - (gridRect.width / 2);
-            currentTranslateY = (viewportHeight / 2) - (gridRect.height / 2);
+            currentTranslateX = (viewportWidth - gridRect.width) / 2;
+            currentTranslateY = (viewportHeight - gridRect.height) / 2;
             
-            // Applique la translation
             pixelGrid.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px)`;
         }
 
-        // Gestion du zoom avec la molette de la souris
         pixelGrid.addEventListener('wheel', (event) => {
-            event.preventDefault(); // Empêche le défilement de la page
-
+            event.preventDefault();
             const oldZoomLevel = currentZoomLevel;
+            const rect = pixelGrid.getBoundingClientRect();
+            
+            // Coordonnées de la souris par rapport à la grille
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
 
-            if (event.deltaY < 0) { // Molette vers le haut (zoom avant)
+            // Position relative de la souris sur la grille (0 à 1)
+            const mouseXRatio = mouseX / rect.width;
+            const mouseYRatio = mouseY / rect.height;
+
+            if (event.deltaY < 0) {
                 currentZoomLevel = Math.min(maxZoom, currentZoomLevel + zoomStep);
-            } else { // Molette vers le bas (zoom arrière)
+            } else {
                 currentZoomLevel = Math.max(minZoom, currentZoomLevel - zoomStep);
             }
 
             if (oldZoomLevel !== currentZoomLevel) {
-                setPixelGridSize(); // Recalcule la taille de la grille avec le nouveau zoom
+                const oldWidth = rect.width;
+                const oldHeight = rect.height;
+
+                setPixelGridSize(); // Applique le nouveau zoom
+
+                const newWidth = pixelGrid.offsetWidth;
+                const newHeight = pixelGrid.offsetHeight;
+                
+                // Ajuster la translation pour que le point sous la souris reste fixe
+                currentTranslateX -= (newWidth - oldWidth) * mouseXRatio;
+                currentTranslateY -= (newHeight - oldHeight) * mouseYRatio;
+                
+                pixelGrid.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px)`;
             }
         });
 
-        // Gestion du déplacement de la grille (drag) avec le clic molette
         pixelGrid.addEventListener('mousedown', (event) => {
-            // event.button === 1 correspond au clic du bouton central (molette)
             if (event.button === 1) { 
-                event.preventDefault(); // Empêche le comportement par défaut du clic molette (autoscroll)
+                event.preventDefault();
                 isDragging = true;
                 startX = event.clientX - currentTranslateX;
                 startY = event.clientY - currentTranslateY;
@@ -314,19 +377,19 @@
 
         window.addEventListener('mousemove', (event) => {
             if (!isDragging) return;
-            event.preventDefault(); // Empêche la sélection de texte lors du glisser-déposer
+            event.preventDefault();
             currentTranslateX = event.clientX - startX;
             currentTranslateY = event.clientY - startY;
             pixelGrid.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px)`;
         });
 
         window.addEventListener('mouseup', () => {
-            isDragging = false;
-            pixelGrid.style.cursor = 'grab';
+            if (isDragging) {
+                isDragging = false;
+                pixelGrid.style.cursor = 'grab';
+            }
         });
 
-
-        // --- Fonctions pour gérer les modales ---
         function showColorModal() {
             return new Promise(resolve => {
                 resolveColorModalPromise = resolve;
@@ -350,54 +413,46 @@
             });
         }
 
-        // Gestionnaire pour la sélection de couleur dans la modale
         modalPalette.addEventListener('click', (event) => {
             if (event.target.classList.contains('color-box')) {
                 const selectedColor = event.target.dataset.color;
                 colorModal.classList.remove('show');
-                resolveColorModalPromise(selectedColor); // Résout la promesse avec la couleur choisie
+                resolveColorModalPromise(selectedColor);
             }
         });
 
-        // Gestionnaire pour le bouton Annuler de la modale de couleur
         colorModalCancelBtn.addEventListener('click', () => {
             colorModal.classList.remove('show');
-            resolveColorModalPromise(null); // Résout la promesse avec null si annulé
+            resolveColorModalPromise(null);
         });
 
-        // Gestionnaire pour le bouton OK de la modale de pseudo
         modalOkBtn.addEventListener('click', () => {
             const userName = usernameInput.value.trim();
             usernameModal.classList.remove('show');
             resolveUsernameModalPromise(userName === '' ? 'Anonyme' : userName);
         });
 
-        // Gestionnaire pour le bouton Annuler de la modale de pseudo
         modalCancelBtn.addEventListener('click', () => {
             usernameModal.classList.remove('show');
             resolveUsernameModalPromise(null);
         });
 
-        // Gérer la touche Entrée dans l'input de la modale de pseudo
         usernameInput.addEventListener('keypress', (event) => {
             if (event.key === 'Enter') {
                 modalOkBtn.click();
             }
         });
 
-        // Gestionnaire pour le bouton Archiver de la modale d'archivage
         archiveOkBtn.addEventListener('click', async () => {
             archiveModal.classList.remove('show');
-            resolveArchiveModalPromise(true); // Résout la promesse avec true pour archiver
+            resolveArchiveModalPromise(true);
         });
 
-        // Gestionnaire pour le bouton Annuler de la modale d'archivage
         archiveCancelBtn.addEventListener('click', () => {
             archiveModal.classList.remove('show');
-            resolveArchiveModalPromise(false); // Résout la promesse avec false pour ne pas archiver
+            resolveArchiveModalPromise(false);
         });
 
-        // --- Fonctions de logique métier ---
         function updatePixelOnGrid(x, y, color, user) {
             const pixelElement = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
             if (pixelElement) { 
@@ -405,23 +460,47 @@
                 pixelElement.dataset.color = color;
                 pixelElement.dataset.user = user;
                 pixelElement.querySelector('.tooltip').textContent = user;
-                pixelElement.classList.add('placed'); 
+                // pixelElement.classList.add('placed'); // Plus forcément utile si on peut toujours modifier
             }
         }
+        
+        // Fonction pour réinitialiser la grille côté client
+        function resetGridClientSide() {
+            const pixels = pixelGrid.querySelectorAll('.pixel');
+            pixels.forEach(p => {
+                p.style.backgroundColor = '#fff'; // Couleur par défaut (blanc)
+                p.dataset.color = '#fff';
+                p.dataset.user = 'Vide';
+                p.querySelector('.tooltip').textContent = 'Vide';
+                // p.classList.remove('placed');
+            });
+            showMessage('Nouvelle grille prête !', 'info');
+        }
+
 
         async function addPixel(x, y, color, userName) {
             try {
-                const url = `${APPS_SCRIPT_API_URL}?action=addPixel&x=${x}&y=${y}&color=${color}&user=${userName}`;
+                // Encoder les paramètres pour l'URL, surtout si les pseudos ou couleurs peuvent contenir des caractères spéciaux
+                const url = `${APPS_SCRIPT_API_URL}?action=addPixel&x=${x}&y=${y}&color=${encodeURIComponent(color)}&user=${encodeURIComponent(userName)}`;
                 const response = await fetch(url, {
-                    method: 'GET',
+                    method: 'GET', // GET est la méthode par défaut pour Apps Script web apps, mais explicite c'est bien
                 });
-                const result = await response.json(); // La réponse inclura { success: true/false, message, pixel }
+                const result = await response.json();
 
                 if (result.success) {
                     updatePixelOnGrid(result.pixel.x, result.pixel.y, result.pixel.color, result.pixel.user);
                     showMessage('Pixel placé avec succès !', 'success');
+                    // Démarrer le timer après un placement réussi et si la limite est configurée
+                    if (RATE_LIMIT_MINUTES > 0) {
+                         startCooldownTimer(RATE_LIMIT_MINUTES);
+                    }
                 } else {
                     showMessage(result.message || 'Erreur lors du placement du pixel.', 'error');
+                    // Si l'erreur est une limite de temps, extraire le temps restant et démarrer le timer
+                    const matches = result.message && result.message.match(/attendre (\d+) minute\(s\)/);
+                    if (matches && matches[1]) {
+                        startCooldownTimer(parseInt(matches[1], 10));
+                    }
                 }
             } catch (error) {
                 console.error('Erreur lors de l\'ajout du pixel :', error);
@@ -433,21 +512,28 @@
             try {
                 const url = `${APPS_SCRIPT_API_URL}?action=getPixels`;
                 const response = await fetch(url);
-                const pixels = await response.json();
-                pixels.forEach(p => {
-                    updatePixelOnGrid(p.x, p.y, p.color, p.user);
-                });
+                const pixelsData = await response.json(); // Renommé pour éviter confusion avec les éléments DOM
 
-                // Après le chargement, vérifier si la grille est pleine
+                if (pixelsData && Array.isArray(pixelsData)) {
+                    pixelsData.forEach(p => {
+                        updatePixelOnGrid(p.x, p.y, p.color, p.user);
+                    });
+                } else {
+                    console.warn("Aucun pixel chargé ou format de données incorrect.");
+                }
+
+
+                // Vérifier si la grille est pleine après le chargement
+                // Cette vérification peut être plus pertinente après un ajout de pixel,
+                // mais la garder ici peut être utile si le chargement initial remplit la grille.
                 const countUrl = `${APPS_SCRIPT_API_URL}?action=countPixels`;
                 const countResponse = await fetch(countUrl);
                 const countResult = await countResponse.json();
 
                 if (countResult.count >= totalPixelsInGrid) {
-                    // Si la grille est pleine, proposer d'archiver
                     const shouldArchive = await showArchiveModal();
                     if (shouldArchive) {
-                        await archiveCurrentGrid();
+                        await archiveCurrentGridAndReset(); // Utilise la nouvelle fonction
                     }
                 }
 
@@ -456,16 +542,18 @@
                 showMessage('Erreur lors du chargement des pixels.', 'error');
             }
         }
-
-        async function archiveCurrentGrid() {
+        
+        // MODIFIÉ : Fonction pour archiver ET réinitialiser la grille côté client
+        async function archiveCurrentGridAndReset() {
             try {
-                const url = `${APPS_SCRIPT_API_URL}?action=archiveGrid`;
+                const url = `${APPS_SCRIPT_API_URL}?action=archiveGrid`; // L'action archive ET nettoie côté serveur
                 const response = await fetch(url);
                 const result = await response.json();
                 if (result.success) {
                     showMessage(result.message, 'success');
+                    resetGridClientSide(); // Réinitialise la grille sur le client
                 } else {
-                    showMessage(result.message || 'Erreur lors de l\'archivage de la grille.', 'error');
+                    showMessage(result.message || 'Erreur lors de l\'archivage.', 'error');
                 }
             } catch (error) {
                 console.error('Erreur lors de l\'archivage :', error);
@@ -473,8 +561,8 @@
             }
         }
 
-        // --- Initialisation ---
-        // Générer la grille de pixels
+
+        // Initialisation de la grille
         for (let i = 0; i < gridSize * totalGridHeightPixels; i++) { 
             const pixel = document.createElement('div');
             pixel.classList.add('pixel');
@@ -487,52 +575,45 @@
 
             const tooltip = document.createElement('span');
             tooltip.classList.add('tooltip');
-            tooltip.textContent = "Vide";
+            tooltip.textContent = "Vide"; // Texte par défaut
             pixel.appendChild(tooltip);
 
-            pixel.dataset.color = "#fff";
-            pixel.dataset.user = "Vide";
+            pixel.dataset.color = "#fff"; // Couleur par défaut
+            pixel.dataset.user = "Vide"; // Utilisateur par défaut
 
             pixelGrid.appendChild(pixel);
 
             pixel.addEventListener('click', async () => {
-                // Si le pixel est déjà placé, on peut choisir de ne rien faire ou de permettre de le repasser
-                // if (pixel.classList.contains('placed')) { return; } 
+                // Vérifier si un timer est actif (si la limite est > 0)
+                // Si le timer est visible, cela signifie que l'utilisateur est en cooldown
+                if (RATE_LIMIT_MINUTES > 0 && !timerContainer.classList.contains('hidden')) {
+                    showMessage("Veuillez attendre la fin du minuteur.", "info");
+                    return;
+                }
 
-                // 1. Afficher la modale de sélection de couleur
                 const selectedColor = await showColorModal();
+                if (selectedColor === null) return;
+                currentColor = selectedColor;
 
-                if (selectedColor === null) { // Si l'utilisateur annule la sélection de couleur
-                    return;
-                }
-                currentColor = selectedColor; // Met à jour la couleur globale si nécessaire
-
-                // 2. Afficher la modale de saisie du pseudo
                 const userName = await showUsernameModal();
-
-                if (userName === null) { // Si l'utilisateur annule la saisie du pseudo
-                    return;
-                }
-
-                // 3. Ajouter le pixel
+                if (userName === null) return;
+                
                 addPixel(x, y, currentColor, userName);
             });
         }
 
-        // Appeler la fonction de dimensionnement au chargement et au redimensionnement de la fenêtre
         window.addEventListener('load', () => {
             setPixelGridSize();
-            centerGrid(); // Centrer la grille au chargement
+            centerGrid(); 
+            loadAllPixels(); // Charger les pixels après que la grille est prête
         });
         window.addEventListener('resize', () => {
             setPixelGridSize();
-            centerGrid(); // Centrer la grille au redimensionnement
+            centerGrid();
         });
 
-        // Charger tous les pixels au démarrage
-        loadAllPixels();
-        // Rafraîchir toutes les 3 secondes pour simuler le temps réel
-        setInterval(loadAllPixels, 3000); 
+        // Rafraîchir toutes les 5 secondes pour simuler le temps réel (ajustez selon besoin)
+        setInterval(loadAllPixels, 5000); 
     </script>
 </body>
 </html>
