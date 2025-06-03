@@ -110,6 +110,38 @@
         .modal-overlay.show .modal-content {
             transform: translateY(0);
         }
+
+        /* Style pour les messages temporaires */
+        #message-box {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50; /* Vert par défaut */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        #message-box.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        #message-box.error {
+            background-color: #f44336; /* Rouge pour les erreurs */
+        }
+        #message-box.info {
+            background-color: #2196F3; /* Bleu pour les infos */
+        }
+
+        /* Style pour la modale d'archivage */
+        #archive-modal .modal-content {
+            width: 500px;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center min-h-screen">
@@ -141,6 +173,19 @@
         </div>
     </div>
 
+    <div id="archive-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Grille Complète !</h2>
+            <p class="text-gray-700 mb-6">La grille de pixels est entièrement remplie. Voulez-vous archiver son état actuel ?</p>
+            <div class="flex justify-center space-x-4">
+                <button id="archive-ok-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Archiver</button>
+                <button id="archive-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Non, merci</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="message-box" class="hidden"></div>
+
     <script>
         // L'URL de votre application web Apps Script déployée, utilisée comme API.
         const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbyLUo3xcpele1-mfY09wmlUaIxTOxn4DS69_XDEnyanGm-Lb_iB-7E-pjdJU9R-JtEY/exec'; 
@@ -159,8 +204,15 @@
         const modalOkBtn = document.getElementById('modal-ok-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
+        const archiveModal = document.getElementById('archive-modal');
+        const archiveOkBtn = document.getElementById('archive-ok-btn');
+        const archiveCancelBtn = document.getElementById('archive-cancel-btn');
+
+        const messageBox = document.getElementById('message-box');
+
         let resolveColorModalPromise;
         let resolveUsernameModalPromise;
+        let resolveArchiveModalPromise;
 
         let currentZoomLevel = 1.0; // Niveau de zoom actuel
         const zoomStep = 0.1; // Pas de zoom
@@ -178,6 +230,16 @@
         const targetRatioHeight = 9;
         // Calculer le nombre total de pixels en hauteur pour maintenir le ratio 16:9
         const totalGridHeightPixels = Math.round(gridSize * (targetRatioHeight / targetRatioWidth)); 
+        const totalPixelsInGrid = gridSize * totalGridHeightPixels; // Nombre total de pixels attendus dans la grille
+
+        // Fonction pour afficher un message temporaire
+        function showMessage(message, type = 'success') {
+            messageBox.textContent = message;
+            messageBox.className = `message-box show ${type}`;
+            setTimeout(() => {
+                messageBox.classList.remove('show');
+            }, 3000); // Le message disparaît après 3 secondes
+        }
 
         // Fonction pour calculer et appliquer la taille des pixels et de la grille avec un ratio 16:9
         function setPixelGridSize() {
@@ -281,6 +343,13 @@
             });
         }
 
+        function showArchiveModal() {
+            return new Promise(resolve => {
+                resolveArchiveModalPromise = resolve;
+                archiveModal.classList.add('show');
+            });
+        }
+
         // Gestionnaire pour la sélection de couleur dans la modale
         modalPalette.addEventListener('click', (event) => {
             if (event.target.classList.contains('color-box')) {
@@ -316,6 +385,18 @@
             }
         });
 
+        // Gestionnaire pour le bouton Archiver de la modale d'archivage
+        archiveOkBtn.addEventListener('click', async () => {
+            archiveModal.classList.remove('show');
+            resolveArchiveModalPromise(true); // Résout la promesse avec true pour archiver
+        });
+
+        // Gestionnaire pour le bouton Annuler de la modale d'archivage
+        archiveCancelBtn.addEventListener('click', () => {
+            archiveModal.classList.remove('show');
+            resolveArchiveModalPromise(false); // Résout la promesse avec false pour ne pas archiver
+        });
+
         // --- Fonctions de logique métier ---
         function updatePixelOnGrid(x, y, color, user) {
             const pixelElement = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
@@ -334,11 +415,17 @@
                 const response = await fetch(url, {
                     method: 'GET',
                 });
-                const placedPixel = await response.json();
-                updatePixelOnGrid(placedPixel.x, placedPixel.y, placedPixel.color, placedPixel.user);
+                const result = await response.json(); // La réponse inclura { success: true/false, message, pixel }
+
+                if (result.success) {
+                    updatePixelOnGrid(result.pixel.x, result.pixel.y, result.pixel.color, result.pixel.user);
+                    showMessage('Pixel placé avec succès !', 'success');
+                } else {
+                    showMessage(result.message || 'Erreur lors du placement du pixel.', 'error');
+                }
             } catch (error) {
                 console.error('Erreur lors de l\'ajout du pixel :', error);
-                // Utiliser une modale d'erreur si nécessaire, pas alert()
+                showMessage('Erreur de connexion au serveur.', 'error');
             }
         }
 
@@ -350,14 +437,45 @@
                 pixels.forEach(p => {
                     updatePixelOnGrid(p.x, p.y, p.color, p.user);
                 });
+
+                // Après le chargement, vérifier si la grille est pleine
+                const countUrl = `${APPS_SCRIPT_API_URL}?action=countPixels`;
+                const countResponse = await fetch(countUrl);
+                const countResult = await countResponse.json();
+
+                if (countResult.count >= totalPixelsInGrid) {
+                    // Si la grille est pleine, proposer d'archiver
+                    const shouldArchive = await showArchiveModal();
+                    if (shouldArchive) {
+                        await archiveCurrentGrid();
+                    }
+                }
+
             } catch (error) {
                 console.error('Erreur lors du chargement des pixels :', error);
+                showMessage('Erreur lors du chargement des pixels.', 'error');
+            }
+        }
+
+        async function archiveCurrentGrid() {
+            try {
+                const url = `${APPS_SCRIPT_API_URL}?action=archiveGrid`;
+                const response = await fetch(url);
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                } else {
+                    showMessage(result.message || 'Erreur lors de l\'archivage de la grille.', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur lors de l\'archivage :', error);
+                showMessage('Erreur de connexion lors de l\'archivage.', 'error');
             }
         }
 
         // --- Initialisation ---
         // Générer la grille de pixels
-        for (let i = 0; i < gridSize * totalGridHeightPixels; i++) { // Boucle basée sur le nombre total de pixels pour le ratio 16:9
+        for (let i = 0; i < gridSize * totalGridHeightPixels; i++) { 
             const pixel = document.createElement('div');
             pixel.classList.add('pixel');
             
