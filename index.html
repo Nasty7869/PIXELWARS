@@ -12,11 +12,13 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin-top: 20px;
+            margin: 0; /* Supprime la marge par défaut du body */
             background-color: #e2e8f0; /* Un gris-bleu plus doux */
             min-height: 100vh;
             justify-content: center;
             padding: 1rem; /* Ajout d'un padding pour éviter que la grille ne touche les bords */
+            box-sizing: border-box; /* Inclut le padding dans la taille totale */
+            overflow: hidden; /* Empêche le défilement du body pour le zoom */
         }
 
         #pixel-grid {
@@ -25,18 +27,14 @@
             background-color: white;
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); /* Ombre plus prononcée */
             position: relative;
-            border-radius: 0.75rem; /* Bords arrondis */
-            overflow: hidden; /* Pour que les pixels ne dépassent pas les bords arrondis */
-            /* La taille sera définie dynamiquement par JS */
-            width: 100%; /* Prend toute la largeur disponible du conteneur */
-            height: 100%; /* Prend toute la hauteur disponible du conteneur */
-            max-width: calc(100vh - 200px); /* Limite la taille pour qu'elle ne soit pas trop grande sur les écrans larges */
-            max-height: calc(100vh - 200px);
-            aspect-ratio: 1 / 1; /* Force un ratio 1:1 pour la grille */
+            border-radius: 0; /* Supprime les bords arrondis du tableau */
+            overflow: hidden; /* Pour que les pixels ne dépassent pas les bords */
+            flex-grow: 1; /* Permet à la grille de prendre l'espace disponible */
+            cursor: grab; /* Curseur pour indiquer que la grille est déplaçable */
+            /* Supprimé: aspect-ratio: 1 / 1; car le ratio sera 16:9 */
         }
 
         .pixel {
-            /* La taille sera définie dynamiquement par JS */
             background-color: #fff;
             border: 0.5px solid #f0f0f0; /* Bordure de pixel très légère */
             position: relative;
@@ -59,15 +57,16 @@
             border-radius: 0.5rem; /* Bords arrondis pour l'infobulle */
             padding: 5px 8px;
             position: absolute;
-            z-index: 10; /* Au-dessus de tout */
-            top: 100%; /* Apparaît sous le pixel */
+            z-index: 1000; /* Z-index très élevé pour s'assurer qu'il est au-dessus */
+            bottom: 100%; /* Apparaît au-dessus du pixel */
             left: 50%;
             transform: translateX(-50%);
-            margin-top: 8px; /* Plus d'espace sous le pixel */
+            margin-bottom: 8px; /* Plus d'espace au-dessus du pixel */
             white-space: nowrap;
             font-size: 12px;
             opacity: 0;
             transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+            pointer-events: none; /* Permet de cliquer à travers l'infobulle */
         }
 
         .pixel:hover .tooltip {
@@ -86,7 +85,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 100;
+            z-index: 10000; /* Z-index très élevé pour les modales */
             opacity: 0;
             visibility: hidden;
             transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
@@ -115,13 +114,6 @@
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
-    <h1 class="text-4xl font-extrabold text-gray-800 mb-8 tracking-tight">Mon PixelWar Online</h1>
-
-    <div id="controls" class="mb-8 flex items-center space-x-6 bg-white p-4 rounded-xl shadow-lg">
-        <span class="text-lg font-semibold text-gray-700">Couleur actuelle :</span>
-        <div id="current-color-display" class="w-10 h-10 border-2 border-gray-300 rounded-full transition-all duration-200 ease-in-out selected border-blue-600" style="background-color: red;"></div>
-    </div>
-
     <div id="pixel-grid"></div>
 
     <div id="color-modal" class="modal-overlay">
@@ -154,9 +146,8 @@
         // L'URL de votre application web Apps Script déployée, utilisée comme API.
         const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbyLUo3xcpele1-mfY09wmlUaIxTOxn4DS69_XDEnyanGm-Lb_iB-7E-pjdJU9R-JtEY/exec'; 
 
-        const gridSize = 50;
+        const gridSize = 50; // Nombre de pixels sur un côté de la grille (50x50)
         const pixelGrid = document.getElementById('pixel-grid');
-        const mainColorDisplay = document.getElementById('current-color-display'); // Affiche la couleur sélectionnée
         let currentColor = 'red'; // Couleur par défaut
 
         // Éléments des modales
@@ -172,24 +163,119 @@
         let resolveColorModalPromise;
         let resolveUsernameModalPromise;
 
-        // Fonction pour calculer et appliquer la taille des pixels
-        function setPixelGridSize() {
-            // Calcule la taille du pixel en fonction de la plus petite dimension de la fenêtre
-            // et de la taille de la grille, avec une marge.
-            const availableSize = Math.min(window.innerWidth, window.innerHeight) * 0.8; // 80% de la taille dispo
-            const pixelSize = Math.floor(availableSize / gridSize);
-            
-            pixelGrid.style.width = `${pixelSize * gridSize}px`;
-            pixelGrid.style.height = `${pixelSize * gridSize}px`;
-            pixelGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${pixelSize}px)`;
-            pixelGrid.style.gridTemplateRows = `repeat(${gridSize}, ${pixelSize}px)`;
+        let currentZoomLevel = 1.0; // Niveau de zoom actuel
+        const zoomStep = 0.1; // Pas de zoom
+        const minZoom = 1.0; // Zoom minimum (la grille ne peut pas être plus petite que la taille initiale)
+        const maxZoom = 5.0; // Zoom maximum
 
-            // Met à jour la taille des pixels individuels (si nécessaire, mais le grid template gère déjà ça)
-            document.querySelectorAll('.pixel').forEach(pixel => {
-                pixel.style.width = `${pixelSize}px`;
-                pixel.style.height = `${pixelSize}px`;
-            });
+        // Variables pour le déplacement de la grille
+        let isDragging = false;
+        let startX, startY;
+        let currentTranslateX = 0;
+        let currentTranslateY = 0;
+
+        // Fonction pour calculer et appliquer la taille des pixels et de la grille avec un ratio 16:9
+        function setPixelGridSize() {
+            const bodyPadding = parseFloat(getComputedStyle(document.body).paddingLeft) * 2;
+            const availableWidth = window.innerWidth - bodyPadding;
+            const availableHeight = window.innerHeight - bodyPadding;
+
+            // Définir le ratio cible (16:9)
+            const targetRatioWidth = 16;
+            const targetRatioHeight = 9;
+
+            let gridWidth, gridHeight;
+
+            // Calculer les dimensions de la grille en fonction du ratio 16:9
+            // Option 1: Basé sur la largeur disponible
+            let calculatedHeight = (availableWidth / targetRatioWidth) * targetRatioHeight;
+            if (calculatedHeight <= availableHeight) {
+                gridWidth = availableWidth;
+                gridHeight = calculatedHeight;
+            } else {
+                // Option 2: Basé sur la hauteur disponible si la largeur est trop grande
+                calculatedWidth = (availableHeight / targetRatioHeight) * targetRatioWidth;
+                gridHeight = availableHeight;
+                gridWidth = calculatedWidth;
+            }
+
+            // Appliquer le niveau de zoom
+            gridWidth *= currentZoomLevel;
+            gridHeight *= currentZoomLevel;
+
+            // Calculer la taille d'un pixel pour qu'il reste carré
+            // On divise la largeur de la grille par le nombre de pixels en largeur (gridSize)
+            // Ou la hauteur de la grille par le nombre de pixels en hauteur (gridSize * 9/16 si on voulait un ratio de pixels différent)
+            // Mais pour que les pixels restent carrés, la taille du pixel est la même pour les deux dimensions.
+            // On prend la dimension la plus petite pour s'assurer que les pixels sont bien contenus.
+            const pixelSize = Math.min(gridWidth / gridSize, gridHeight / (gridSize * (targetRatioHeight / targetRatioWidth)));
+            
+            // Appliquer la taille à la grille
+            pixelGrid.style.width = `${pixelSize * gridSize}px`;
+            pixelGrid.style.height = `${pixelSize * gridSize * (targetRatioHeight / targetRatioWidth)}px`; // Ajuster la hauteur pour le ratio 16:9
+
+            pixelGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${pixelSize}px)`;
+            pixelGrid.style.gridTemplateRows = `repeat(${gridSize * (targetRatioHeight / targetRatioWidth)}, ${pixelSize}px)`; // Le nombre de lignes s'adapte au ratio
+
+            centerGrid();
         }
+
+        // Fonction pour centrer la grille
+        function centerGrid() {
+            const gridRect = pixelGrid.getBoundingClientRect();
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            // Calcule le décalage nécessaire pour centrer la grille
+            currentTranslateX = (viewportWidth / 2) - (gridRect.width / 2);
+            currentTranslateY = (viewportHeight / 2) - (gridRect.height / 2);
+            
+            // Applique la translation
+            pixelGrid.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px)`;
+        }
+
+        // Gestion du zoom avec la molette de la souris
+        pixelGrid.addEventListener('wheel', (event) => {
+            event.preventDefault(); // Empêche le défilement de la page
+
+            const oldZoomLevel = currentZoomLevel;
+
+            if (event.deltaY < 0) { // Molette vers le haut (zoom avant)
+                currentZoomLevel = Math.min(maxZoom, currentZoomLevel + zoomStep);
+            } else { // Molette vers le bas (zoom arrière)
+                currentZoomLevel = Math.max(minZoom, currentZoomLevel - zoomStep);
+            }
+
+            if (oldZoomLevel !== currentZoomLevel) {
+                setPixelGridSize(); // Recalcule la taille de la grille avec le nouveau zoom
+            }
+        });
+
+        // Gestion du déplacement de la grille (drag) avec le clic molette
+        pixelGrid.addEventListener('mousedown', (event) => {
+            // event.button === 1 correspond au clic du bouton central (molette)
+            if (event.button === 1) { 
+                event.preventDefault(); // Empêche le comportement par défaut du clic molette (autoscroll)
+                isDragging = true;
+                startX = event.clientX - currentTranslateX;
+                startY = event.clientY - currentTranslateY;
+                pixelGrid.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('mousemove', (event) => {
+            if (!isDragging) return;
+            event.preventDefault(); // Empêche la sélection de texte lors du glisser-déposer
+            currentTranslateX = event.clientX - startX;
+            currentTranslateY = event.clientY - startY;
+            pixelGrid.style.transform = `translate(${currentTranslateX}px, ${currentTranslateY}px)`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            pixelGrid.style.cursor = 'grab';
+        });
+
 
         // --- Fonctions pour gérer les modales ---
         function showColorModal() {
@@ -288,49 +374,68 @@
             const pixel = document.createElement('div');
             pixel.classList.add('pixel');
             
+            // Calculer les coordonnées X et Y pour une grille de 16:9
+            // Si gridSize est 50, cela signifie 50 pixels en largeur.
+            // Pour un ratio 16:9, le nombre de pixels en hauteur doit être (50 * 9) / 16 = 28.125.
+            // On va donc adapter le nombre de lignes dans le grid-template-rows.
+            const totalGridHeightPixels = Math.round(gridSize * (targetRatioHeight / targetRatioWidth)); // Nombre de pixels en hauteur
             const x = i % gridSize;
             const y = Math.floor(i / gridSize);
-            pixel.dataset.x = x;
-            pixel.dataset.y = y;
 
-            const tooltip = document.createElement('span');
-            tooltip.classList.add('tooltip');
-            tooltip.textContent = "Vide";
-            pixel.appendChild(tooltip);
+            // Ne créer les pixels que s'ils sont dans les limites de la grille 16:9
+            if (y < totalGridHeightPixels) {
+                pixel.dataset.x = x;
+                pixel.dataset.y = y;
 
-            pixel.dataset.color = "#fff";
-            pixel.dataset.user = "Vide";
+                const tooltip = document.createElement('span');
+                tooltip.classList.add('tooltip');
+                tooltip.textContent = "Vide";
+                pixel.appendChild(tooltip);
 
-            pixelGrid.appendChild(pixel);
+                pixel.dataset.color = "#fff";
+                pixel.dataset.user = "Vide";
 
-            pixel.addEventListener('click', async () => {
-                // Si le pixel est déjà placé, on peut choisir de ne rien faire ou de permettre de le repasser
-                // if (pixel.classList.contains('placed')) { return; } 
+                pixelGrid.appendChild(pixel);
 
-                // 1. Afficher la modale de sélection de couleur
-                const selectedColor = await showColorModal();
+                pixel.addEventListener('click', async () => {
+                    // Si le pixel est déjà placé, on peut choisir de ne rien faire ou de permettre de le repasser
+                    // if (pixel.classList.contains('placed')) { return; } 
 
-                if (selectedColor === null) { // Si l'utilisateur annule la sélection de couleur
-                    return;
-                }
-                currentColor = selectedColor; // Met à jour la couleur globale si nécessaire
-                mainColorDisplay.style.backgroundColor = currentColor; // Met à jour l'affichage de la couleur actuelle
+                    // 1. Afficher la modale de sélection de couleur
+                    const selectedColor = await showColorModal();
 
-                // 2. Afficher la modale de saisie du pseudo
-                const userName = await showUsernameModal();
+                    if (selectedColor === null) { // Si l'utilisateur annule la sélection de couleur
+                        return;
+                    }
+                    currentColor = selectedColor; // Met à jour la couleur globale si nécessaire
 
-                if (userName === null) { // Si l'utilisateur annule la saisie du pseudo
-                    return;
-                }
+                    // 2. Afficher la modale de saisie du pseudo
+                    const userName = await showUsernameModal();
 
-                // 3. Ajouter le pixel
-                addPixel(x, y, currentColor, userName);
-            });
+                    if (userName === null) { // Si l'utilisateur annule la saisie du pseudo
+                        return;
+                    }
+
+                    // 3. Ajouter le pixel
+                    addPixel(x, y, currentColor, userName);
+                });
+            }
         }
 
+        // Définir les ratios pour le calcul de la grille
+        const targetRatioWidth = 16;
+        const targetRatioHeight = 9;
+        const totalGridHeightPixels = Math.round(gridSize * (targetRatioHeight / targetRatioWidth)); // Calculer le nombre de pixels en hauteur
+
         // Appeler la fonction de dimensionnement au chargement et au redimensionnement de la fenêtre
-        window.addEventListener('load', setPixelGridSize);
-        window.addEventListener('resize', setPixelGridSize);
+        window.addEventListener('load', () => {
+            setPixelGridSize();
+            centerGrid(); // Centrer la grille au chargement
+        });
+        window.addEventListener('resize', () => {
+            setPixelGridSize();
+            centerGrid(); // Centrer la grille au redimensionnement
+        });
 
         // Charger tous les pixels au démarrage
         loadAllPixels();
