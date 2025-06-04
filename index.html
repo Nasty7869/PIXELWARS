@@ -168,6 +168,79 @@
             display: flex;
             gap: 15px;
         }
+
+        /* Styles pour la modale de liste d'archives */
+        #list-archives-modal .modal-content {
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        #archives-list {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+        #archives-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        #archives-list li:last-child {
+            border-bottom: none;
+        }
+        #archives-list li .archive-info {
+            flex-grow: 1;
+        }
+        #archives-list li .archive-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Styles pour la modale de visualisation d'archive */
+        #view-archive-modal .modal-content {
+            width: auto; /* Laisser la grille définir la largeur */
+            max-width: 95vw;
+            max-height: 95vh;
+            overflow: auto;
+            padding: 1rem;
+        }
+        #archived-pixel-grid {
+            display: grid;
+            border: 1px solid #cbd5e1;
+            background-color: white;
+            box-shadow: 0 5px 10px rgba(0,0,0,0.05);
+            margin: 0 auto; /* Centrer la grille archivée */
+        }
+        .archived-pixel {
+            border: 0.5px solid #f0f0f0;
+            position: relative;
+        }
+        .archived-pixel .tooltip {
+            visibility: hidden;
+            width: auto;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            text-align: center;
+            border-radius: 0.5rem;
+            padding: 3px 6px;
+            position: absolute;
+            z-index: 1000;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 5px;
+            white-space: nowrap;
+            font-size: 10px;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out;
+            pointer-events: none;
+        }
+        .archived-pixel:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex flex-col items-center min-h-screen">
@@ -209,15 +282,37 @@
         </div>
     </div>
 
-    <!-- Modale d'archivage de la grille -->
+    <!-- Modale d'archivage de la grille (demande de nom) -->
     <div id="archive-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Grille Complète !</h2>
-            <p class="text-gray-700 mb-6">La grille de pixels est entièrement remplie. Voulez-vous archiver son état actuel par e-mail ?</p>
+            <p class="text-gray-700 mb-4">La grille de pixels est entièrement remplie. Donnez un nom à cette toile pour l'archiver :</p>
+            <input type="text" id="canvas-name-input" class="w-full p-3 border border-gray-300 rounded-lg mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nom de la toile" maxlength="30">
             <div class="flex justify-center space-x-4">
-                <button id="archive-ok-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Archiver par E-mail</button>
-                <button id="archive-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Non, merci</button>
+                <button id="archive-ok-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Archiver la Toile</button>
+                <button id="archive-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Annuler</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modale de liste des archives -->
+    <div id="list-archives-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Toiles Archivées</h2>
+            <ul id="archives-list" class="mb-6">
+                <!-- Les archives seront insérées ici par JS -->
+                <li class="text-gray-500">Aucune archive trouvée.</li>
+            </ul>
+            <button id="list-archives-close-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Fermer</button>
+        </div>
+    </div>
+
+    <!-- Modale de visualisation d'une archive -->
+    <div id="view-archive-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="view-archive-title" class="text-2xl font-bold text-gray-800 mb-4"></h2>
+            <div id="archived-pixel-grid" class="mb-6"></div>
+            <button id="view-archive-close-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Fermer</button>
         </div>
     </div>
 
@@ -230,12 +325,13 @@
     <!-- Boutons de contrôle -->
     <div id="control-buttons">
         <button id="fill-grid-btn" class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">Remplir la Grille (Test)</button>
-        <button id="manual-archive-btn" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Archiver Manuellement (E-mail)</button>
+        <button id="manual-archive-email-btn" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Archiver Manuellement (E-mail)</button>
+        <button id="view-archives-btn" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Voir les Archives</button>
     </div>
 
     <script>
         // L'URL de votre application web Apps Script déployée, utilisée comme API.
-        const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbzUaI1arWwKRM0wZMnTtMoyqyMyR6_1HqNiNm0pIpgAF-1bn11cJA0mv18z211SIWkz/exec'; 
+        const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbwBrie_l2D8Ub4dQjm5kMKeBT6XRbWDvFnAPu3b06UhFnaoHCObq0tZB3qE_UcmpiXS/exec'; 
 
         const gridSize = 50; // Nombre de pixels sur un côté de la grille (50x50)
         const pixelGrid = document.getElementById('pixel-grid');
@@ -251,18 +347,32 @@
         const modalOkBtn = document.getElementById('modal-ok-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
+        // La modale d'archive n'est plus utilisée pour la confirmation automatique, mais pour l'archivage manuel par nom
         const archiveModal = document.getElementById('archive-modal');
+        const canvasNameInput = document.getElementById('canvas-name-input');
         const archiveOkBtn = document.getElementById('archive-ok-btn');
         const archiveCancelBtn = document.getElementById('archive-cancel-btn');
+
+
+        const listArchivesModal = document.getElementById('list-archives-modal');
+        const archivesList = document.getElementById('archives-list');
+        const listArchivesCloseBtn = document.getElementById('list-archives-close-btn');
+
+        const viewArchiveModal = document.getElementById('view-archive-modal');
+        const viewArchiveTitle = document.getElementById('view-archive-title');
+        const archivedPixelGrid = document.getElementById('archived-pixel-grid');
+        const viewArchiveCloseBtn = document.getElementById('view-archive-close-btn');
+
 
         const messageBox = document.getElementById('message-box');
         const cooldownTimerDisplay = document.getElementById('cooldown-timer');
         const fillGridBtn = document.getElementById('fill-grid-btn');
-        const manualArchiveBtn = document.getElementById('manual-archive-btn');
+        const manualArchiveEmailBtn = document.getElementById('manual-archive-email-btn');
+        const viewArchivesBtn = document.getElementById('view-archives-btn');
 
         let resolveColorModalPromise;
         let resolveUsernameModalPromise;
-        let resolveArchiveModalPromise;
+        let resolveArchiveModalPromise; // Pour l'archivage manuel par nom
 
         let currentZoomLevel = 1.0; // Niveau de zoom actuel
         const zoomStep = 0.1; // Pas de zoom
@@ -395,11 +505,28 @@
             });
         }
 
-        function showArchiveModal() {
+        // Modale d'archivage manuel par nom
+        function showManualArchiveModal() {
             return new Promise(resolve => {
                 resolveArchiveModalPromise = resolve;
                 archiveModal.classList.add('show');
+                canvasNameInput.value = ''; // Réinitialiser le champ de nom
+                canvasNameInput.focus();
             });
+        }
+
+        function showListArchivesModal() {
+            return new Promise(async resolve => {
+                listArchivesModal.classList.add('show');
+                await populateArchivesList();
+                resolve();
+            });
+        }
+
+        function showViewArchiveModal(title, pixels) {
+            viewArchiveTitle.textContent = title;
+            renderArchivedGrid(pixels);
+            viewArchiveModal.classList.add('show');
         }
 
         // Gestionnaire pour la sélection de couleur dans la modale
@@ -437,17 +564,40 @@
             }
         });
 
-        // Gestionnaire pour le bouton Archiver de la modale d'archivage
+        // Gestionnaire pour le bouton Archiver de la modale d'archivage (sur Google Sheet)
         archiveOkBtn.addEventListener('click', async () => {
+            const canvasName = canvasNameInput.value.trim();
+            if (!canvasName) {
+                showMessage('Veuillez donner un nom à la toile.', 'error');
+                return;
+            }
             archiveModal.classList.remove('show');
-            resolveArchiveModalPromise(true); // Résout la promesse avec true pour archiver
+            resolveArchiveModalPromise(canvasName); // Résout la promesse avec le nom
         });
 
         // Gestionnaire pour le bouton Annuler de la modale d'archivage
         archiveCancelBtn.addEventListener('click', () => {
             archiveModal.classList.remove('show');
-            resolveArchiveModalPromise(false); // Résout la promesse avec false pour ne pas archiver
+            resolveArchiveModalPromise(null); // Résout la promesse avec null si annulé
         });
+
+        // Gérer la touche Entrée dans l'input de la modale de nom de toile
+        canvasNameInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                archiveOkBtn.click();
+            }
+        });
+
+        // Fermer la modale de liste d'archives
+        listArchivesCloseBtn.addEventListener('click', () => {
+            listArchivesModal.classList.remove('show');
+        });
+
+        // Fermer la modale de visualisation d'archive
+        viewArchiveCloseBtn.addEventListener('click', () => {
+            viewArchiveModal.classList.remove('show');
+        });
+
 
         // --- Fonctions de logique métier ---
         function updatePixelOnGrid(x, y, color, user) {
@@ -488,6 +638,16 @@
                 const url = `${APPS_SCRIPT_API_URL}?action=getPixels`;
                 const response = await fetch(url);
                 const pixels = await response.json();
+                
+                // Réinitialiser la grille visuellement avant de la remplir
+                document.querySelectorAll('.pixel').forEach(pixel => {
+                    pixel.style.backgroundColor = '#fff';
+                    pixel.dataset.color = '#fff';
+                    pixel.dataset.user = 'Vide';
+                    pixel.querySelector('.tooltip').textContent = 'Vide';
+                    pixel.classList.remove('placed');
+                });
+
                 pixels.forEach(p => {
                     updatePixelOnGrid(p.x, p.y, p.color, p.user);
                 });
@@ -498,10 +658,12 @@
                 const countResult = await countResponse.json();
 
                 if (countResult.count >= totalPixelsInGrid) {
-                    const shouldArchive = await showArchiveModal();
-                    if (shouldArchive) {
-                        await archiveCurrentGridByEmail();
-                    }
+                    // Archivage automatique
+                    const now = new Date();
+                    const autoCanvasName = `Toile Complète ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                    const archiverUser = usernameInput.value.trim() || 'Anonyme'; // Utilise le pseudo actuel ou "Anonyme"
+                    showMessage(`Grille pleine ! Archivage automatique de "${autoCanvasName}"...`, 'info');
+                    await archiveCurrentGridToSheet(autoCanvasName, archiverUser);
                 }
 
             } catch (error) {
@@ -524,6 +686,9 @@
                 });
 
                 const url = `${APPS_SCRIPT_API_URL}?action=archiveGridByEmail`;
+                console.log('Envoi de la requête d\'archivage par e-mail à :', url); // Log de débogage
+                console.log('Corps de la requête :', JSON.stringify(allPixelsData)); // Log de débogage
+
                 const response = await fetch(url, {
                     method: 'POST', // Utilisation de POST pour envoyer les données de la grille
                     headers: {
@@ -531,6 +696,13 @@
                     },
                     body: JSON.stringify(allPixelsData) // Envoyer les données de la grille en JSON
                 });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Réponse du réseau non OK:', response.status, response.statusText, errorText); // Log détaillé de l'erreur réseau
+                    throw new Error(`Réponse du réseau non OK: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+
                 const result = await response.json();
                 if (result.success) {
                     showMessage(result.message, 'success');
@@ -539,9 +711,173 @@
                 }
             } catch (error) {
                 console.error('Erreur lors de l\'archivage par e-mail :', error);
-                showMessage('Erreur de connexion lors de l\'archivage par e-mail.', 'error');
+                showMessage('Erreur de connexion lors de l\'archivage par e-mail. Vérifiez la console pour plus de détails.', 'error');
             }
         }
+
+        async function archiveCurrentGridToSheet(canvasName, archiverUser) {
+            showMessage(`Archivage de "${canvasName}" en cours...`, 'info');
+            try {
+                const url = `${APPS_SCRIPT_API_URL}?action=archiveGridToSheet`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ canvasName: canvasName, archiverUser: archiverUser })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Erreur réseau lors de l'archivage sur feuille: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    loadAllPixels(); // Recharger la grille principale après archivage et effacement
+                } else {
+                    showMessage(result.message || 'Erreur lors de l\'archivage sur Google Sheet.', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur lors de l\'archivage sur Google Sheet :', error);
+                showMessage('Erreur de connexion lors de l\'archivage sur Google Sheet.', 'error');
+            }
+        }
+
+        async function populateArchivesList() {
+            archivesList.innerHTML = '<li class="text-gray-500">Chargement des archives...</li>';
+            try {
+                const url = `${APPS_SCRIPT_API_URL}?action=getArchivedCanvases`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Erreur réseau lors de la récupération des archives: ${response.status} ${response.statusText}`);
+                }
+                const archives = await response.json();
+
+                archivesList.innerHTML = ''; // Vider la liste
+                if (archives.length === 0) {
+                    archivesList.innerHTML = '<li class="text-gray-500">Aucune archive trouvée.</li>';
+                } else {
+                    archives.forEach(archive => {
+                        const li = document.createElement('li');
+                        const formattedDate = new Date(archive.timestamp).toLocaleString();
+                        li.innerHTML = `
+                            <div class="archive-info">
+                                <strong class="text-gray-900">${archive.canvasName}</strong>
+                                <span class="text-gray-600">(${formattedDate} par ${archive.archiverUser})</span>
+                            </div>
+                            <div class="archive-actions">
+                                <button class="px-3 py-1 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors view-archive-btn" data-sheet-name="${archive.sheetName}" data-canvas-name="${archive.canvasName}">Voir</button>
+                                <button class="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors load-archive-btn" data-sheet-name="${archive.sheetName}">Charger</button>
+                            </div>
+                        `;
+                        archivesList.appendChild(li);
+                    });
+
+                    // Ajouter les écouteurs d'événements aux boutons "Voir" et "Charger"
+                    archivesList.querySelectorAll('.view-archive-btn').forEach(button => {
+                        button.addEventListener('click', async (event) => {
+                            const sheetName = event.target.dataset.sheetName;
+                            const canvasName = event.target.dataset.canvasName;
+                            await viewArchivedCanvas(sheetName, canvasName);
+                        });
+                    });
+                    archivesList.querySelectorAll('.load-archive-btn').forEach(button => {
+                        button.addEventListener('click', async (event) => {
+                            const sheetName = event.target.dataset.sheetName;
+                            await loadArchivedCanvasIntoMain(sheetName);
+                            listArchivesModal.classList.remove('show'); // Fermer la modale après chargement
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors de la récupération des archives :', error);
+                archivesList.innerHTML = `<li class="text-red-500">Erreur de chargement des archives: ${error.message}</li>`;
+                showMessage('Erreur lors du chargement des archives.', 'error');
+            }
+        }
+
+        async function viewArchivedCanvas(sheetName, canvasName) {
+            showMessage(`Chargement de l'archive "${canvasName}" pour visualisation...`, 'info');
+            try {
+                const url = `${APPS_SCRIPT_API_URL}?action=getArchivedCanvasData&sheetName=${sheetName}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Erreur réseau lors de la récupération des données d'archive: ${response.status} ${response.statusText}`);
+                }
+                const pixels = await response.json();
+                showViewArchiveModal(canvasName, pixels);
+                listArchivesModal.classList.remove('show'); // Fermer la liste des archives
+            } catch (error) {
+                console.error('Erreur lors de la visualisation de l\'archive :', error);
+                showMessage(`Erreur lors de la visualisation de l'archive: ${error.message}`, 'error');
+            }
+        }
+
+        function renderArchivedGrid(pixels) {
+            archivedPixelGrid.innerHTML = ''; // Vider la grille précédente
+            const pixelSize = 8; // Taille fixe pour les pixels dans l'aperçu de l'archive
+
+            archivedPixelGrid.style.width = `${pixelSize * gridSize}px`;
+            archivedPixelGrid.style.height = `${pixelSize * totalGridHeightPixels}px`;
+            archivedPixelGrid.style.gridTemplateColumns = `repeat(${gridSize}, ${pixelSize}px)`;
+            archivedPixelGrid.style.gridTemplateRows = `repeat(${totalGridHeightPixels}, ${pixelSize}px)`;
+
+            // Créer une carte pour un accès rapide aux pixels par coordonnées
+            const pixelMap = new Map();
+            pixels.forEach(p => {
+                pixelMap.set(`${p.x},${p.y}`, p);
+            });
+
+            for (let y = 0; y < totalGridHeightPixels; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const pixel = document.createElement('div');
+                    pixel.classList.add('archived-pixel');
+                    
+                    const pixelData = pixelMap.get(`${x},${y}`);
+                    const color = pixelData ? pixelData.color : '#ffffff'; // Blanc par défaut
+                    const user = pixelData ? pixelData.user : 'Vide';
+
+                    pixel.style.backgroundColor = color;
+                    
+                    const tooltip = document.createElement('span');
+                    tooltip.classList.add('tooltip');
+                    tooltip.textContent = user;
+                    pixel.appendChild(tooltip);
+
+                    archivedPixelGrid.appendChild(pixel);
+                }
+            }
+        }
+
+        async function loadArchivedCanvasIntoMain(sheetName) {
+            showMessage(`Chargement de l'archive "${sheetName}" dans la toile principale...`, 'info');
+            try {
+                const url = `${APPS_SCRIPT_API_URL}?action=loadArchivedCanvas`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sheetName: sheetName })
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Erreur réseau lors du chargement de l'archive: ${response.status} ${response.statusText} - ${errorText}`);
+                }
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    loadAllPixels(); // Recharger la grille principale avec les nouvelles données
+                } else {
+                    showMessage(result.message || 'Erreur lors du chargement de l\'archive.', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement de l\'archive :', error);
+                showMessage(`Erreur lors du chargement de l'archive: ${error.message}`, 'error');
+            }
+        }
+
 
         // Fonction pour remplir la grille (pour les tests)
         fillGridBtn.addEventListener('click', async () => {
@@ -562,12 +898,18 @@
             }
         });
 
-        // Bouton d'archivage manuel
-        manualArchiveBtn.addEventListener('click', async () => {
-            const shouldArchive = await showArchiveModal(); // Réutilise la modale d'archive
-            if (shouldArchive) {
-                await archiveCurrentGridByEmail();
-            }
+        // Bouton d'archivage manuel par E-mail
+        manualArchiveEmailBtn.addEventListener('click', async () => {
+            // Récupérer le pseudo de l'utilisateur actuel (si disponible)
+            const archiverUser = usernameInput.value.trim() || 'Anonyme';
+            // On ne demande pas de nom de toile ici, car c'est un export direct par email
+            showMessage('Envoi de l\'archive par e-mail en cours...', 'info');
+            await archiveCurrentGridByEmail();
+        });
+
+        // Bouton pour voir les archives
+        viewArchivesBtn.addEventListener('click', async () => {
+            await showListArchivesModal();
         });
 
         // --- Timer de cooldown ---
@@ -638,7 +980,7 @@
                 if (userName === null) { // Si l'utilisateur annule la saisie du pseudo
                     return;
                 }
-
+                localStorage.setItem('lastPixelUser', userName); // Sauvegarder le pseudo pour le timer
                 // 3. Ajouter le pixel
                 addPixel(x, y, currentColor, userName);
             });
