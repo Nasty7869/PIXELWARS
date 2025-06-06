@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon PixelWar Online</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Styles CSS personnalisés pour la grille et les pixels */
@@ -12,7 +13,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 0; /* Supprime la marge par défaut du body */
+            margin: 0; /* Supprime la marge par default du body */
             background-color: #e2e8f0; /* Un gris-bleu plus doux */
             min-height: 100vh;
             justify-content: center; /* Centre le contenu verticalement */
@@ -40,17 +41,10 @@
             cursor: pointer;
             border-radius: 2px; /* Bords légèrement arrondis pour les pixels */
             transition: background-color 0.1s ease-in-out; /* Transition douce pour la couleur */
-            box-shadow: 0 0 5px rgba(0,0,0,0); /* Initial shadow for glow effect */
         }
 
         .pixel.placed {
             cursor: not-allowed;
-        }
-
-        /* Style for the glow effect on images */
-        .pixel.placed:hover {
-            box-shadow: 0 0 15px 5px rgba(76, 175, 80, 0.7); /* Green glow on hover for placed pixels */
-            z-index: 1; /* Bring to front on hover */
         }
 
         /* Style pour l'infobulle */
@@ -124,7 +118,7 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: #4CAF50; /* Vert par défaut */
+            background-color: #4CAF50; /* Vert par default */
             color: white;
             padding: 10px 20px;
             border-radius: 8px;
@@ -145,7 +139,7 @@
             background-color: #2196F3; /* Bleu pour les infos */
         }
 
-        /* Style pour la modale d'archivage */
+        /* Style pour la modale d'archivage (non utilisée pour l'auto-archive) */
         #archive-modal .modal-content {
             width: 500px;
         }
@@ -161,7 +155,7 @@
             border-radius: 8px;
             font-size: 1.1rem;
             z-index: 9999; /* Moins que les modales, plus que la grille */
-            display: none; /* Caché par défaut */
+            display: none; /* Caché par default */
         }
 
         /* Style pour les boutons de contrôle en bas */
@@ -252,16 +246,19 @@
 <body class="bg-gray-100 flex flex-col items-center min-h-screen">
     <div id="pixel-grid"></div>
 
+    <!-- Modale de sélection de couleur -->
     <div id="color-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Choisissez une couleur</h2>
             <div id="modal-palette" class="flex justify-center flex-wrap gap-2 mb-6">
+                <!-- Couleurs de base -->
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: red;" data-color="red"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: blue;" data-color="blue"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: green;" data-color="green"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: yellow;" data-color="yellow"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: black;" data-color="black"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: white;" data-color="white"></div>
+                <!-- Nouvelles couleurs -->
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: purple;" data-color="purple"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: orange;" data-color="orange"></div>
                 <div class="color-box w-10 h-10 border-2 border-gray-300 rounded-full cursor-pointer transition-all duration-200 ease-in-out hover:scale-105 hover:shadow-md" style="background-color: cyan;" data-color="cyan"></div>
@@ -273,6 +270,7 @@
         </div>
     </div>
 
+    <!-- Modale de saisie du pseudo -->
     <div id="username-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Quel est votre pseudo ?</h2>
@@ -284,28 +282,19 @@
         </div>
     </div>
 
-    <div id="archive-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Grille Complète !</h2>
-            <p class="text-gray-700 mb-4">La grille de pixels est entièrement remplie. Donnez un nom à cette toile pour l'archiver :</p>
-            <input type="text" id="canvas-name-input" class="w-full p-3 border border-gray-300 rounded-lg mb-6 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nom de la toile" maxlength="30">
-            <div class="flex justify-center space-x-4">
-                <button id="archive-ok-btn" class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">Archiver la Toile</button>
-                <button id="archive-cancel-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Annuler</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Modale de liste des archives -->
     <div id="list-archives-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 class="text-2xl font-bold text-gray-800 mb-4">Toiles Archivées</h2>
             <ul id="archives-list" class="mb-6">
+                <!-- Les archives seront insérées ici par JS -->
                 <li class="text-gray-500">Aucune archive trouvée.</li>
             </ul>
             <button id="list-archives-close-btn" class="px-6 py-3 bg-gray-300 text-gray-800 font-semibold rounded-lg shadow-md hover:bg-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">Fermer</button>
         </div>
     </div>
 
+    <!-- Modale de visualisation d'une archive -->
     <div id="view-archive-modal" class="modal-overlay">
         <div class="modal-content">
             <h2 id="view-archive-title" class="text-2xl font-bold text-gray-800 mb-4"></h2>
@@ -314,22 +303,33 @@
         </div>
     </div>
 
+    <!-- Boîte de message temporaire -->
     <div id="message-box" class="hidden"></div>
 
+    <!-- Timer de cooldown -->
     <div id="cooldown-timer"></div>
 
+    <!-- Boutons de contrôle -->
     <div id="control-buttons">
         <button id="fill-grid-btn" class="px-6 py-3 bg-purple-600 text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">Remplir la Grille (Test)</button>
+        <button id="clear-grid-btn" class="px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Effacer la Grille</button>
         <button id="view-archives-btn" class="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Voir les Archives</button>
     </div>
 
     <script>
         // L'URL de votre application web Apps Script déployée, utilisée comme API.
-        const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbz2RCxuw1IMwBI1ZIWWVv_ViClPTpjSKi3p9XitZgRWdG9jvB6-q_N0O9was44FCCD5/exec';
+        // VEUILLEZ REMPLACER CETTE URL PAR LA VOTRE APRÈS CHAQUE DÉPLOIEMENT DU SCRIPT GOOGLE APPS !
+        // Pour obtenir l'URL:
+        // 1. Ouvrez votre projet Apps Script (Code.gs).
+        // 2. Cliquez sur "Déployer" > "Gérer les déploiements".
+        // 3. Cliquez sur l'icône crayon (Modifier le déploiement) à côté de votre déploiement actuel.
+        // 4. Copiez l'URL sous "URL de l'application web".
+        // 5. Collez-la ci-dessous, en remplaçant l'URL existante.
+        const APPS_SCRIPT_API_URL = 'https://script.google.com/macros/s/AKfycbzPZ-gQvOHnhJDn4Y2KjPRy3Y7K1n0E_ZvSKKptAZA-ODW4-57onkyjL7nSGktoeiAh/exec'; 
 
         const gridSize = 50; // Nombre de pixels sur un côté de la grille (50x50)
         const pixelGrid = document.getElementById('pixel-grid');
-        let currentColor = 'red'; // Couleur par défaut
+        let currentColor = 'red'; // Couleur par default
 
         // Éléments des modales
         const colorModal = document.getElementById('color-modal');
@@ -340,14 +340,7 @@
         const usernameInput = document.getElementById('username-input');
         const modalOkBtn = document.getElementById('modal-ok-btn');
         const modalCancelBtn = document.getElementById('modal-cancel-btn');
-
-        // La modale d'archive n'est plus utilisée pour la confirmation automatique, mais pour l'archivage manuel par nom
-        const archiveModal = document.getElementById('archive-modal');
-        const canvasNameInput = document.getElementById('canvas-name-input');
-        const archiveOkBtn = document.getElementById('archive-ok-btn');
-        const archiveCancelBtn = document.getElementById('archive-cancel-btn');
-
-
+        
         const listArchivesModal = document.getElementById('list-archives-modal');
         const archivesList = document.getElementById('archives-list');
         const listArchivesCloseBtn = document.getElementById('list-archives-close-btn');
@@ -361,11 +354,12 @@
         const messageBox = document.getElementById('message-box');
         const cooldownTimerDisplay = document.getElementById('cooldown-timer');
         const fillGridBtn = document.getElementById('fill-grid-btn');
+        const clearGridBtn = document.getElementById('clear-grid-btn');
         const viewArchivesBtn = document.getElementById('view-archives-btn');
+
 
         let resolveColorModalPromise;
         let resolveUsernameModalPromise;
-        let resolveArchiveModalPromise; // Pour l'archivage manuel par nom
 
         let currentZoomLevel = 1.0; // Niveau de zoom actuel
         const zoomStep = 0.1; // Pas de zoom
@@ -382,7 +376,7 @@
         const targetRatioWidth = 16;
         const targetRatioHeight = 9;
         // Calculer le nombre total de pixels en hauteur pour maintenir le ratio 16:9
-        const totalGridHeightPixels = Math.round(gridSize * (targetRatioHeight / targetRatioWidth));
+        const totalGridHeightPixels = Math.round(gridSize * (targetRatioHeight / targetRatioWidth)); 
         const totalPixelsInGrid = gridSize * totalGridHeightPixels; // Nombre total de pixels attendus dans la grille
 
         const RATE_LIMIT_SECONDS = 3 * 60; // 3 minutes en secondes, doit correspondre à Code.gs
@@ -458,8 +452,8 @@
         // Gestion du déplacement de la grille (drag) avec le clic molette
         pixelGrid.addEventListener('mousedown', (event) => {
             // event.button === 1 correspond au clic du bouton central (molette)
-            if (event.button === 1) {
-                event.preventDefault(); // Empêche le comportement par défaut du clic molette (autoscroll)
+            if (event.button === 1) { 
+                event.preventDefault(); // Empêche le comportement par default du clic molette (autoscroll)
                 isDragging = true;
                 startX = event.clientX - currentTranslateX;
                 startY = event.clientY - currentTranslateY;
@@ -495,16 +489,6 @@
                 usernameInput.value = '';
                 usernameModal.classList.add('show');
                 usernameInput.focus();
-            });
-        }
-
-        // Modale d'archivage manuel par nom
-        function showManualArchiveModal() {
-            return new Promise(resolve => {
-                resolveArchiveModalPromise = resolve;
-                archiveModal.classList.add('show');
-                canvasNameInput.value = ''; // Réinitialiser le champ de nom
-                canvasNameInput.focus();
             });
         }
 
@@ -556,31 +540,7 @@
                 modalOkBtn.click();
             }
         });
-
-        // Gestionnaire pour le bouton Archiver de la modale d'archivage (sur Google Sheet)
-        archiveOkBtn.addEventListener('click', async () => {
-            const canvasName = canvasNameInput.value.trim();
-            if (!canvasName) {
-                showMessage('Veuillez donner un nom à la toile.', 'error');
-                return;
-            }
-            archiveModal.classList.remove('show');
-            resolveArchiveModalPromise(canvasName); // Résout la promesse avec le nom
-        });
-
-        // Gestionnaire pour le bouton Annuler de la modale d'archivage
-        archiveCancelBtn.addEventListener('click', () => {
-            archiveModal.classList.remove('show');
-            resolveArchiveModalPromise(null); // Résout la promesse avec null si annulé
-        });
-
-        // Gérer la touche Entrée dans l'input de la modale de nom de toile
-        canvasNameInput.addEventListener('keypress', (event) => {
-            if (event.key === 'Enter') {
-                archiveOkBtn.click();
-            }
-        });
-
+        
         // Fermer la modale de liste d'archives
         listArchivesCloseBtn.addEventListener('click', () => {
             listArchivesModal.classList.remove('show');
@@ -595,12 +555,12 @@
         // --- Fonctions de logique métier ---
         function updatePixelOnGrid(x, y, color, user) {
             const pixelElement = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
-            if (pixelElement) {
+            if (pixelElement) { 
                 pixelElement.style.backgroundColor = color;
                 pixelElement.dataset.color = color;
                 pixelElement.dataset.user = user;
                 pixelElement.querySelector('.tooltip').textContent = user;
-                pixelElement.classList.add('placed');
+                pixelElement.classList.add('placed'); 
             }
         }
 
@@ -651,17 +611,12 @@
                 const countResult = await countResponse.json();
 
                 if (countResult.count >= totalPixelsInGrid) {
-                    // Afficher la modale d'archivage manuel (si ce n'est pas déjà affiché)
-                    if (!archiveModal.classList.contains('show')) {
-                        const archiverUser = usernameInput.value.trim() || 'Anonyme'; // Utilise le pseudo actuel ou "Anonyme"
-                        const canvasName = await showManualArchiveModal(); // Demande le nom de la toile
-                        if (canvasName) {
-                            showMessage(`Grille pleine ! Archivage de "${canvasName}" en cours...`, 'info');
-                            await archiveCurrentGridToSheet(canvasName, archiverUser);
-                        } else {
-                            showMessage('Archivage annulé.', 'info');
-                        }
-                    }
+                    // Archivage automatique
+                    const now = new Date();
+                    const autoCanvasName = `Toile Complète ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+                    const archiverUser = usernameInput.value.trim() || 'Anonyme'; // Utilise le pseudo actuel ou "Anonyme"
+                    showMessage(`Grille pleine ! Archivage automatique de "${autoCanvasName}"...`, 'info');
+                    await archiveCurrentGridToSheet(autoCanvasName, archiverUser);
                 }
 
             } catch (error) {
@@ -711,8 +666,8 @@
                 const archives = await response.json();
 
                 archivesList.innerHTML = ''; // Vider la liste
-                if (archives.length === 0) {
-                    archivesList.innerHTML = '<li class="text-gray-500">Aucune archive trouvée.</li>';
+                if (!Array.isArray(archives) || archives.length === 0) { // Vérification si c'est un tableau et vide
+                    archivesList.innerHTML = '<li class="text-gray-500">Aucune archive trouvée ou format de données incorrect.</li>';
                 } else {
                     archives.forEach(archive => {
                         const li = document.createElement('li');
@@ -853,6 +808,25 @@
             }
         });
 
+        // Bouton pour effacer la grille
+        clearGridBtn.addEventListener('click', async () => {
+            showMessage('Effacement de la grille en cours...', 'info');
+            try {
+                const url = `${APPS_SCRIPT_API_URL}?action=clearMainCanvas`;
+                const response = await fetch(url, { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                    loadAllPixels(); // Recharger la grille après l'effacement
+                } else {
+                    showMessage(result.message || 'Erreur lors de l\'effacement de la grille.', 'error');
+                }
+            } catch (error) {
+                console.error('Erreur lors de l\'effacement de la grille :', error);
+                showMessage('Erreur de connexion lors de l\'effacement de la grille.', 'error');
+            }
+        });
+
         // Bouton pour voir les archives
         viewArchivesBtn.addEventListener('click', async () => {
             await showListArchivesModal();
@@ -891,7 +865,7 @@
         
         // --- Initialisation ---
         // Générer la grille de pixels
-        for (let i = 0; i < gridSize * totalGridHeightPixels; i++) {
+        for (let i = 0; i < gridSize * totalGridHeightPixels; i++) { 
             const pixel = document.createElement('div');
             pixel.classList.add('pixel');
             
@@ -937,9 +911,9 @@
             setPixelGridSize();
             centerGrid(); // Centrer la grille au chargement
             // Initialiser le timer si un pseudo est déjà connu (ex: depuis une session précédente)
-            const lastUser = localStorage.getItem('lastPixelUser'); // Vous pourriez stocker le dernier pseudo utilisé
+            const lastUser = localStorage.getItem('lastPixelUser'); 
             if (lastUser) {
-                    updateCooldownTimer(lastUser);
+                 updateCooldownTimer(lastUser);
             }
         });
         window.addEventListener('resize', () => {
@@ -950,7 +924,7 @@
         // Charger tous les pixels au démarrage
         loadAllPixels();
         // Rafraîchir toutes les 3 secondes pour simuler le temps réel
-        setInterval(loadAllPixels, 3000);
+        setInterval(loadAllPixels, 3000); 
     </script>
 </body>
 </html>
